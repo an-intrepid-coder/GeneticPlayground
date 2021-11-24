@@ -10,9 +10,14 @@ abstract class Classifier( // todo: test
 
     // todo: test
     fun asBinaryString(): String {
-        return characteristics
-            .map { it.asBitString() }
-            .toString()
+        var bitString = ""
+        characteristics.forEach { characteristic ->
+            bitString += when (characteristic.active) {
+                true -> "1"
+                else -> "0"
+            }
+        }
+        return bitString
     }
 }
 
@@ -26,7 +31,7 @@ fun numWithActiveGene(generation: List<Classifier>, geneName: String): Int {
 }
 
 // todo: test
-fun genePercentages(generation: List<Classifier>): Map<String, Double> { // oooh generics
+fun activeGenePercentages(generation: List<Classifier>): Map<String, Double> {
     val percentages = mutableMapOf<String, Double>()
     generation.forEach { classifier ->
         classifier.characteristics
@@ -37,6 +42,21 @@ fun genePercentages(generation: List<Classifier>): Map<String, Double> { // oooh
                     else -> percentages[characteristic.name] = 1.0
                 }
             }
+    }
+    percentages.forEach { entry ->
+        percentages[entry.key] = entry.value / generation.size.toDouble() * 100.0
+    }
+    return percentages.toSortedMap()
+}
+
+fun genomePercentages(generation: List<Classifier>): Map<String, Double> {
+    val percentages = mutableMapOf<String, Double>()
+    generation.forEach { classifier ->
+        val asBitString = classifier.asBinaryString()
+        when (asBitString in percentages.keys) {
+            true -> percentages[asBitString] = percentages[asBitString]!! + 1.0
+            else -> percentages[asBitString] = 1.0
+        }
     }
     percentages.forEach { entry ->
         percentages[entry.key] = entry.value / generation.size.toDouble() * 100.0
