@@ -1,5 +1,7 @@
 # Genetic Playground
 
-Having been inspired by a paper (*Genetic Algorithms* by John H. Holland), I'm going to try my hand at this.
+Having been inspired by a paper ([*Genetic Algorithms* by John H. Holland](http://www2.econ.iastate.edu/tesfatsi/holland.GAIntro.htm)), I'm going to try my hand at this.
 
-The first thing I'm going to experiment with is the *Prisoner's Dilemma*, in order to see if I can reproduce the results in the paper using a more abstract system than string representation. I think modern languages (and in particular Kotlin) offer the potential to do the Genetic Programming described in the paper in a more intuitive way than is described in the paper.
+**Goal:** A personal (toy, for now) framework which can solve problems using a Genetic Programming approach, as described in the paper above.
+
+**Status:** I have begun implementing the Prisoner's Dilemma example from the paper, but it is in the very earliest stages. It is a dense paper and will take awhile to get through, but it is full of really good stuff.
