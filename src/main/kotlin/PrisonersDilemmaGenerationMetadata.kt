@@ -7,13 +7,22 @@ data class PrisonersDilemmaGenerationMetadata(
     val averageScore: Double,
     val numAboveAverageScore: Int,
     val roundsPerGame: Int,
-    val genePercentages: Map<String, Double>,
+    val activeGenePercentages: Map<String, Double>,
+    val genomesFrequency: Map<String, Double>
 ) {
-    fun printGenePercentages(): String {
-        var genePercentagesString = "Gene Percentages for Generation #$generationNumber:"
-        genePercentages.forEach { entry ->
-            genePercentagesString += "\n\t${entry.key}: ${entry.value}%"
+    fun printActiveGenePercentages(): String {
+        var percentagesString = "Active Gene Percentages for Generation #$generationNumber:"
+        activeGenePercentages.forEach { entry ->
+            percentagesString += "\n\t${entry.key}: ${entry.value}%"
         }
-        return genePercentagesString
+        return percentagesString
+    }
+
+    fun printGenomeFrequencies(): String {
+        var percentagesString = "Genome Frequencies for Generation #$generationNumber:"
+        genomesFrequency.forEach { entry ->
+            percentagesString += "\n\t${entry.key}: ${entry.value}%"
+        }
+        return percentagesString
     }
 }
