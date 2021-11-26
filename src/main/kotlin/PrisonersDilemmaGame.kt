@@ -1,12 +1,3 @@
-/*
-    Terminology for reward payoffs taken from Wikipedia. For simplicity's sake I've decided to use positive values
-    instead of negative ones.
- */
-const val rewardPayoff = 1
-const val punishmentPayoff = 2
-const val temptationPayoff = 0
-const val suckersPayoff = 3
-
 enum class PrisonersDilemmaPlayerLabel {
     PLAYER_A,
     PLAYER_B
@@ -27,33 +18,27 @@ data class PrisonersDilemmaRoundResult(
 
 data class PrisonersDilemmaGameResult(
     val roundResults: List<PrisonersDilemmaRoundResult>,
-    val playerATotalScore: Int,
-    val playerBTotalScore: Int,
+    val playerAAverageScore: Double,
+    val playerBAverageScore: Double,
 )
 
 /**
  * A rendition of the Prisoner's Dilemma game.
- *
- * TODO: Some unit tests.
- * TODO: Try to reproduce the results of Holland's paper, where the AIs rediscover the tit-for-tat strategy and beyond.
- * TODO: Migrate to its own package, as the Genetic Playground should be able to handle any number of games designed
- *  to use it.
- * TODO: Extended rule sets involving more players. I'm sure Wikipedia can offer a plethora of such things.
  */
 class PrisonersDilemmaGame(
     val roundsToPlay: Int,
     private val interactiveMode: Boolean = false,
-    private val playerA: PrisonersDilemmaPlayer,
-    private val playerB: PrisonersDilemmaPlayer,
+    val playerA: PrisonersDilemmaPlayer,
+    val playerB: PrisonersDilemmaPlayer,
 ) {
     var roundsPassed = 0
-    var previousRounds = listOf<PrisonersDilemmaRoundResult>()
-    var playerAScoreTotal = 0
-    var playerBScoreTotal = 0
+    var previousRounds = mutableListOf<PrisonersDilemmaRoundResult>()
 
     init {
         playerA.playerLabel = PrisonersDilemmaPlayerLabel.PLAYER_A
         playerB.playerLabel = PrisonersDilemmaPlayerLabel.PLAYER_B
+        playerA.opponent = playerB
+        playerB.opponent = playerA
     }
 
     /**
@@ -118,8 +103,6 @@ class PrisonersDilemmaGame(
             )
             else -> error("This should never happen.")
         }
-        playerA.averageScore += roundResult.playerAScore
-        playerB.averageScore += roundResult.playerBScore
         return roundResult
     }
 
@@ -129,9 +112,10 @@ class PrisonersDilemmaGame(
     fun play(): PrisonersDilemmaGameResult {
         while (roundsPassed < roundsToPlay) {
             playRound().let { roundResult ->
-                playerAScoreTotal += roundResult.playerAScore
-                playerBScoreTotal += roundResult.playerBScore
+                playerA.averageScore += roundResult.playerAScore
+                playerB.averageScore += roundResult.playerBScore
                 roundsPassed++
+                previousRounds.add(roundResult)
             }
         }
 
@@ -140,8 +124,8 @@ class PrisonersDilemmaGame(
 
         return PrisonersDilemmaGameResult(
             roundResults = previousRounds,
-            playerATotalScore = playerAScoreTotal,
-            playerBTotalScore = playerBScoreTotal
+            playerAAverageScore = playerA.averageScore,
+            playerBAverageScore = playerB.averageScore
         )
     }
 }
