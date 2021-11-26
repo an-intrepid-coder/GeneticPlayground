@@ -4,11 +4,8 @@ import kotlinx.coroutines.launch
 
 // TODO: Make an abstract class which this implements:
 
-const val defaultGenerations = 200
-const val defaultPrisonersDilemmaRounds = 100
-const val defaultGenePoolSize = 10000
-
 class PrisonersDilemmaPlayground {
+    // TODO: Run the winners against some control groups to see how good they really are.
 
     /**
      * While any game is still in progress, delays execution.
@@ -51,42 +48,30 @@ class PrisonersDilemmaPlayground {
             .forEach { pair ->
                 when (pair.size) {
                     1 -> newGeneration.add(pair.first())
-                    2 -> pair.first().combine(pair.last()).forEach {
-                        newGeneration.add(it as PrisonersDilemmaPlayer)
+                    2 -> pair.first().combine(pair.last()).forEach { offspring ->
+                        newGeneration.add(offspring as PrisonersDilemmaPlayer)
                     }
                 }
             }
 
         // Fill in the remainder from the most fit of the previous generation:
-        genePool.sortedByDescending { it.averageScore }
-        for (index in 0 until (genePool.size - newGeneration.size)) {
-            newGeneration.add(genePool[index])
+        val sortedByScore = genePool.toMutableList().let { generation ->
+            quickSortClassifiersByDescendingAverage(generation, 0, generation.size - 1)
+            generation
+        }
+        for (survivor in sortedByScore) {
+            if (newGeneration.size >= genePool.size) break
+            newGeneration.add(survivor)
         }
 
+        // Shuffling the new generation before returning helps to avoid getting stuck at
+        //  sub-optimal local maximums.
         return newGeneration.shuffled()
     }
 
-    /**
-     * Runs a single game of Iterated Prisoner's Dilemma over a given number of rounds between two players.
-     */
-    private fun simulateGame(
-        // TODO: Make this more abstract
-        playerA: PrisonersDilemmaPlayer,
-        playerB: PrisonersDilemmaPlayer,
-        numRounds: Int,
-    ): Double {
-        var combinedScore: Double?
-        PrisonersDilemmaGame(
-            roundsToPlay = numRounds,
-            interactiveMode = false,
-            playerA = playerA,
-            playerB = playerB
-        ).play().let { gameResult ->
-            playerA.gameResult = gameResult
-            playerB.gameResult = gameResult
-            combinedScore = playerA.averageScore + playerB.averageScore
-        }
-        return combinedScore!!
+    enum class ProgressAlertType {
+        LIGHT,
+        VERBOSE
     }
 
     /**
@@ -98,31 +83,42 @@ class PrisonersDilemmaPlayground {
         numGenerations: Int = defaultGenerations,
         numRounds: Int = defaultPrisonersDilemmaRounds,
         genePoolSize: Int = defaultGenePoolSize,
+        progressAlerts: ProgressAlertType? = null
     ) {
         // Keep a running tally of generational metadata:
-        val metadata = mutableListOf<PrisonersDilemmaGenerationMetadata>()
+        val metadataList = mutableListOf<PrisonersDilemmaGenerationMetadata>()
 
         // Set up a gene pool:
         println("Setting up initial gene pool...")
         var genePool = newGenePool(genePoolSize)
 
+        // The running average:
+        var runningAverageScore = 0.0
+
         // Run the tests over a number of generations:
         println("Evolving...")
         repeat (numGenerations) { generationNumber ->
 
-            // The running average:
-            var runningAverageScore = 0.0
+            if (progressAlerts != null)
+                println("\t... beginning generation #$generationNumber ...")
 
             // Have the generation pair off and each play a game, collecting the average score:
             genePool
                 .chunked(2)
                 .forEach { pair ->
                     coroutineScope.launch {
-                        runningAverageScore += simulateGame(
-                            playerA = pair.first(),
-                            playerB = pair.last(),
-                            numRounds = numRounds
-                        )
+                        val playerA = pair.first()
+                        val playerB = pair.last()
+                        PrisonersDilemmaGame(
+                            roundsToPlay = numRounds,
+                            interactiveMode = false,
+                            playerA = playerA,
+                            playerB = playerB
+                        ).play().let { gameResult ->
+                            playerA.gameResult = gameResult
+                            playerB.gameResult = gameResult
+                            runningAverageScore += gameResult.playerAAverageScore + gameResult.playerBAverageScore
+                        }
                     }
                 }
 
@@ -130,28 +126,53 @@ class PrisonersDilemmaPlayground {
             delayUntilReady(genePool)
 
             // Compute the final average score:
-            runningAverageScore /= genePool.size
+            runningAverageScore /= genePoolSize
 
             // Add some metadata for the generation:
-            metadata.add(PrisonersDilemmaGenerationMetadata(
+            metadataList.add(PrisonersDilemmaGenerationMetadata(
                 generationNumber = generationNumber,
                 generationSize = genePoolSize,
                 averageScore = runningAverageScore,
-                numAboveAverageScore = genePool.asSequence()
-                    .map { it.averageScore }
-                    .filter { it > runningAverageScore }
-                    .toList()
-                    .size,
+                numAboveAverageScore = numAboveAverage(genePool, runningAverageScore),
+                championString = championString(genePool),
                 roundsPerGame = numRounds,
-                genePercentages = genePercentages(genePool)
+                activeGenePercentages = activeGenePercentages(genePool),
+                genomesFrequency = genomePercentages(genePool)
             ))
+
+            if (progressAlerts == ProgressAlertType.VERBOSE) {
+                val last = metadataList.last()
+                println(last.prettyPrint())
+                println(last.printActiveGenePercentages())
+            }
 
             // Produce a new generation:
             genePool = nextGeneration(genePool, runningAverageScore)
         }
 
-        // Print metadata (will use much more complex analysis later on):
-        println("Evolution complete. Results: ")
-        metadata.forEach { println(it.printGenePercentages()) }
+        // add the final generation:
+        metadataList.add(PrisonersDilemmaGenerationMetadata(
+            generationNumber = numGenerations,
+            generationSize = genePoolSize,
+            averageScore = runningAverageScore,
+            numAboveAverageScore = numAboveAverage(genePool, runningAverageScore),
+            championString = championString(genePool),
+            roundsPerGame = numRounds,
+            activeGenePercentages = activeGenePercentages(genePool),
+            genomesFrequency = genomePercentages(genePool)
+        ))
+
+        // Print metadata (will use much more complex analysis later on, and should probably go in files):
+        println("Evolution complete!")
+        println("Metadata for each generation:")
+        metadataList.forEach { metadata ->
+            println(metadata.prettyPrint())
+            println("Active Gene Percentages:")
+            println(metadata.printActiveGenePercentages())
+        }
+        println("The frequency of all genomes which exist in the final generation:")
+        println(metadataList.last().printGenomeFrequencies())
+        println("The Grand Champion:")
+        println(metadataList.last().championString)
     }
 }
