@@ -1,15 +1,25 @@
 /**
  * Represents the metadata for an entire generation of PrisonersDilemmaPlayers.
  */
-data class PrisonersDilemmaGenerationMetadata(
+class PrisonersDilemmaGenerationMetadata(
     val generationNumber: Int,
     val generationSize: Int,
     val averageScore: Double,
     val numAboveAverageScore: Int,
+    val championString: String,
     val roundsPerGame: Int,
     val activeGenePercentages: Map<String, Double>,
     val genomesFrequency: Map<String, Double>
 ) {
+    fun prettyPrint(): String {
+        return "Metadata for Generation #$generationNumber:" +
+                "\n\tGeneration Size: $generationSize" +
+                "\n\tAverage Score: $averageScore" +
+                "\n\t# Above Average: $numAboveAverageScore" +
+                "\n\tRounds/Game: $roundsPerGame" +
+                "\n" + championString
+    }
+
     fun printActiveGenePercentages(): String {
         var percentagesString = "Active Gene Percentages for Generation #$generationNumber:"
         activeGenePercentages.forEach { entry ->
