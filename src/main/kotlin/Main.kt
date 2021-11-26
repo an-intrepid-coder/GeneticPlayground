@@ -21,9 +21,9 @@ suspend fun main(args: Array<String>) = coroutineScope {
      */
     PrisonersDilemmaPlayground().runExperiment(
         coroutineScope = this,
-        numGenerations = 1000,
-        numRounds = 300,
-        genePoolSize = 32000,
+        numGenerations = defaultGenerations,
+        numRounds = defaultPrisonersDilemmaRounds,
+        genePoolSize = defaultGenePoolSize,
         progressAlerts = PrisonersDilemmaPlayground.ProgressAlertType.LIGHT,
     )
 }
