@@ -104,7 +104,7 @@ class PrisonersDilemmaPlayer(
 
         // If kind, then is less likely to defect.
         if (hasActiveGene("kindness"))
-            defectChance -= kindnessModifier
+            defectChance += kindnessModifier
 
         // Set the memory:
         val turnMemory = turnMemory(game)
@@ -117,7 +117,7 @@ class PrisonersDilemmaPlayer(
             }
         }
 
-        // Kind players are more likely to cooperate for every time the other has cooperated in recent memory.
+        // Grateful players are more likely to cooperate for every time the other has cooperated in recent memory.
         if (hasActiveGene("grateful")) {
             turnMemory.forEach { roundResult ->
                 if (opponent!!.previousChoice(roundResult) == DilemmaChoice.COOPERATE)
@@ -167,7 +167,7 @@ class PrisonersDilemmaPlayer(
         // If the player has the "teamPlayer" characteristic and the opponent has the "teamPlayer" characteristic
         //  then it is more likely to cooperate:
         if (hasActiveGene("teamPlayer") && opponent!!.hasActiveGene("teamPlayer"))
-            defectChance -= teamPlayerModifier
+            defectChance += teamPlayerModifier
 
         // Bound the defectChance:
         defectChance = defectChance

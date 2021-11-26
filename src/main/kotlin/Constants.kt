@@ -13,7 +13,7 @@ const val vindictiveModifier = 3
 const val gratefulModifier = -3
 const val competitiveModifier = 25
 const val copycatModifier = 15
-const val teamPlayerModifier = 15
+const val teamPlayerModifier = -15
 const val spontaneityChance = 10
 const val contrarianChance = 15
 // ^ all tentative numbers
