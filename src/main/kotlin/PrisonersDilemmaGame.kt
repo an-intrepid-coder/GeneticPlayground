@@ -19,7 +19,9 @@ data class PrisonersDilemmaRoundResult(
 data class PrisonersDilemmaGameResult(
     val roundResults: List<PrisonersDilemmaRoundResult>,
     val playerAAverageScore: Double,
+    val playerATotalScore: Double,
     val playerBAverageScore: Double,
+    val playerBTotalScore: Double,
 )
 
 /**
@@ -39,6 +41,8 @@ class PrisonersDilemmaGame(
         playerB.playerLabel = PrisonersDilemmaPlayerLabel.PLAYER_B
         playerA.opponent = playerB
         playerB.opponent = playerA
+        playerA.score = 0.0
+        playerB.score = 0.0
     }
 
     /**
@@ -112,20 +116,27 @@ class PrisonersDilemmaGame(
     fun play(): PrisonersDilemmaGameResult {
         while (roundsPassed < roundsToPlay) {
             playRound().let { roundResult ->
-                playerA.averageScore += roundResult.playerAScore
-                playerB.averageScore += roundResult.playerBScore
+                playerA.score += roundResult.playerAScore
+                playerB.score += roundResult.playerBScore
                 roundsPassed++
                 previousRounds.add(roundResult)
             }
         }
 
-        playerA.averageScore /= roundsPassed
-        playerB.averageScore /= roundsPassed
+        val averageA = playerA.score / roundsToPlay
+        val averageB = playerB.score / roundsToPlay
 
-        return PrisonersDilemmaGameResult(
+        val gameResult = PrisonersDilemmaGameResult(
             roundResults = previousRounds,
-            playerAAverageScore = playerA.averageScore,
-            playerBAverageScore = playerB.averageScore
+            playerAAverageScore = averageA,
+            playerATotalScore = playerA.score,
+            playerBAverageScore = averageB,
+            playerBTotalScore = playerB.score
         )
+
+        playerA.score /= roundsToPlay
+        playerB.score /= roundsToPlay
+
+        return gameResult
     }
 }
