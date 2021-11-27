@@ -44,17 +44,12 @@ class PrisonersDilemmaPlayground {
             }
 
         // Fill in the remainder from the most fit of the previous generation:
-        val sortedByScore = genePool.toMutableList().let { generation ->
-            quickSortClassifiersByAscendingAverage(generation, 0, generation.size - 1)
-            generation
-        }
+        val sortedByScore = genePool.sortedBy { it.score }
         for (survivor in sortedByScore) {
             if (newGeneration.size >= genePool.size) break
             newGeneration.add(survivor)
         }
 
-        // Shuffling the new generation before returning helps to avoid getting stuck at
-        //  sub-optimal local maximums.
         return newGeneration.shuffled()
     }
 
@@ -211,7 +206,7 @@ class PrisonersDilemmaPlayground {
         }
         println("The frequency of all genomes which exist in the final generation:")
         println(metadataList.last().printGenomeFrequencies())
-        println("The surviving genomes acquitted themselves thus:")
+        println("The surviving genomes acquitted themselves thus against control groups:")
         controlTestResults.forEach { entry ->
             println("\tGenome: ${entry.key} | Avg. Score: ${entry.value}")
         }
