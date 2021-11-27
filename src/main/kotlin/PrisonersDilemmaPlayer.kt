@@ -19,6 +19,9 @@ fun randomPrisonersDilemmaCharacteristics(): List<Characteristic> {
     // ^^^ More to be sure, but this is a good start. ^^^
 }
 
+/**
+ * Returns a new player with characteristics that match the given bit string.
+ */
 fun playerFromBitString(bitString: String): PrisonersDilemmaPlayer {
     fun indexActive(index: Int): Boolean {
         return bitString[index] == '1'
