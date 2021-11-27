@@ -5,7 +5,7 @@ class PrisonersDilemmaGenerationMetadata(
     val generationNumber: Int,
     val generationSize: Int,
     val averageScore: Double,
-    val numAboveAverageScore: Int,
+    val numFit: Int,
     val championString: String,
     val roundsPerGame: Int,
     val activeGenePercentages: Map<String, Double>,
@@ -15,7 +15,7 @@ class PrisonersDilemmaGenerationMetadata(
         return "Metadata for Generation #$generationNumber:" +
                 "\n\tGeneration Size: $generationSize" +
                 "\n\tAverage Score: $averageScore" +
-                "\n\t# Above Average: $numAboveAverageScore" +
+                "\n\t# Fit: $numFit" +
                 "\n\tRounds/Game: $roundsPerGame" +
                 "\n" + championString
     }
