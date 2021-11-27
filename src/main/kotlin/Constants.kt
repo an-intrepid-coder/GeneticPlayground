@@ -2,6 +2,8 @@ const val defaultGenerations = 200
 const val defaultPrisonersDilemmaRounds = 100
 const val defaultGenePoolSize = 10000
 
+const val numControlGames = 10000
+
 const val diceMax = 99
 // TODO: ^ Increase this to a number with more digits, for more granularity.
 const val defaultDefectChance = 50
