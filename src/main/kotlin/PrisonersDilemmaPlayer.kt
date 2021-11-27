@@ -5,18 +5,37 @@
 fun randomPrisonersDilemmaCharacteristics(): List<Characteristic> {
     return listOf(
         Characteristic("aggressive"),
+        Characteristic("competitive"),
+        Characteristic("contrarian"),
+        Characteristic("copycat"),
+        Characteristic("grateful"),
         Characteristic("kind"),
         Characteristic("memory"),
-        Characteristic("vindictive"),
-        Characteristic("grateful"),
-        Characteristic("competitive"),
-        Characteristic("spontaneous"),
         Characteristic("opportunistic"),
-        Characteristic("copycat"),
+        Characteristic("spontaneous"),
         Characteristic("teamPlayer"),
-        Characteristic("contrarian"),
+        Characteristic("vindictive"),
     )
     // ^^^ More to be sure, but this is a good start. ^^^
+}
+
+fun playerFromBitString(bitString: String): PrisonersDilemmaPlayer {
+    fun indexActive(index: Int): Boolean {
+        return bitString[index] == '1'
+    }
+    return PrisonersDilemmaPlayer(characteristics = listOf(
+        Characteristic("aggressive", indexActive(0)),
+        Characteristic("competitive", indexActive(1)),
+        Characteristic("contrarian", indexActive(2)),
+        Characteristic("copycat", indexActive(3)),
+        Characteristic("grateful", indexActive(4)),
+        Characteristic("kind", indexActive(5)),
+        Characteristic("memory", indexActive(6)),
+        Characteristic("opportunistic", indexActive(7)),
+        Characteristic("spontaneous", indexActive(8)),
+        Characteristic("teamPlayer", indexActive(9)),
+        Characteristic("vindictive", indexActive(11)),
+    ))
 }
 
 /**
@@ -25,7 +44,7 @@ fun randomPrisonersDilemmaCharacteristics(): List<Characteristic> {
 class PrisonersDilemmaPlayer(
     characteristics: List<Characteristic> = randomPrisonersDilemmaCharacteristics(),
     var playerLabel: PrisonersDilemmaPlayerLabel? = null,
-    var gameResult: PrisonersDilemmaGameResult? = null,
+    var gameResults: MutableList<PrisonersDilemmaGameResult> = mutableListOf(),
     var opponent: PrisonersDilemmaPlayer? = null
     // TODO: Track the "age" of the player, as not all Classifiers perish every generation, and that would be
     //  cool to know.
@@ -127,7 +146,7 @@ class PrisonersDilemmaPlayer(
 
         // If the player has the "competitive" gene then they are more likely to defect if they are behind:
         if (hasActiveGene("competitive")) {
-            if (averageScore < opponent!!.averageScore)
+            if (score < opponent!!.score)
                 defectChance += competitiveModifier
         }
 
