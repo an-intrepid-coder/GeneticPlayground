@@ -34,7 +34,7 @@ fun playerFromBitString(bitString: String): PrisonersDilemmaPlayer {
         Characteristic("opportunistic", indexActive(7)),
         Characteristic("spontaneous", indexActive(8)),
         Characteristic("teamPlayer", indexActive(9)),
-        Characteristic("vindictive", indexActive(11)),
+        Characteristic("vindictive", indexActive(10)),
     ))
 }
 
