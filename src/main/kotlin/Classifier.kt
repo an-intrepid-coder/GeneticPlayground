@@ -69,6 +69,9 @@ fun championString(generation: List<Classifier>): String {
             "\n\t% of Gene Pool: $percentGenePool"
 }
 
+/**
+ * Returns the average score of a generation.
+ */
 fun averageScoreForGeneration(generation: List<Classifier>): Double {
     return generation.sumOf { it.score } / generation.size
 }
@@ -84,8 +87,11 @@ fun numWithActiveGene(generation: List<Classifier>, geneName: String): Int {
         .size
 }
 
-// TODO: I can probably combine the following two into something cleaner. The groupBy function, probably.
+// TODO: I can probably combine the following two into something cleaner. Will do soon.
 
+/**
+ * Returns the % of the current generation that has an active copy of each gene.
+ */
 fun activeGenePercentages(generation: List<Classifier>): Map<String, Double> {
     val percentages = mutableMapOf<String, Double>()
     generation.forEach { classifier ->
@@ -104,6 +110,9 @@ fun activeGenePercentages(generation: List<Classifier>): Map<String, Double> {
     return percentages.toSortedMap()
 }
 
+/**
+ * Returns the surviving gene pool as a set of bit strings and the % of the population that they make up.
+ */
 fun genomePercentages(generation: List<Classifier>): Map<String, Double> {
     val percentages = mutableMapOf<String, Double>()
     generation.forEach { classifier ->
