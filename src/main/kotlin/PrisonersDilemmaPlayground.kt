@@ -43,7 +43,7 @@ class PrisonersDilemmaPlayground {
 
         // Above Average players reproduce:
         genePool
-            .filter { it.averageScore > runningAverageScore }
+            .filter { it.averageScore < runningAverageScore }
             .chunked(2)
             .forEach { pair ->
                 when (pair.size) {
@@ -56,7 +56,7 @@ class PrisonersDilemmaPlayground {
 
         // Fill in the remainder from the most fit of the previous generation:
         val sortedByScore = genePool.toMutableList().let { generation ->
-            quickSortClassifiersByDescendingAverage(generation, 0, generation.size - 1)
+            quickSortClassifiersByAscendingAverage(generation, 0, generation.size - 1)
             generation
         }
         for (survivor in sortedByScore) {
