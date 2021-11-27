@@ -1,20 +1,9 @@
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-// TODO: Make an abstract class which this implements:
-
 class PrisonersDilemmaPlayground {
-    // TODO: Run the winners against some control groups to see how good they really are.
-
-    /**
-     * While any game is still in progress, delays execution.
-     */
-    private suspend fun delayUntilReady(classifiers: List<PrisonersDilemmaPlayer>) {
-        while (classifiers.any { it.gameResult == null }) {
-            delay(100) // tentative
-        }
-    }
+    // TODO: Make an abstract class which this implements:
 
     /**
      * Returns a new gene pool with random Characteristics for each Classifier.
@@ -43,7 +32,7 @@ class PrisonersDilemmaPlayground {
 
         // Above Average players reproduce:
         genePool
-            .filter { it.averageScore < runningAverageScore }
+            .filter { it.score < runningAverageScore }
             .chunked(2)
             .forEach { pair ->
                 when (pair.size) {
@@ -69,6 +58,47 @@ class PrisonersDilemmaPlayground {
         return newGeneration.shuffled()
     }
 
+    /**
+     * Each winner plays a given number of control games (of a given number of rounds each) against
+     * totally randomly generated opponents. This is to more objectively measure the "winners" in order
+     * to see how much of their prowess is objective and not the result of some equilibrium.
+     */
+    private suspend fun controlTestWinners(
+        generation: List<PrisonersDilemmaPlayer>,
+        numRounds: Int,
+    ): Map<String, Double>  {
+        val winners = generation
+            .map { it.asBinaryString() }
+            .toSet()
+            .map { playerFromBitString(it) }
+
+        coroutineScope {
+            repeat(numControlGames) {
+
+                val jobs = mutableListOf<Job>()
+
+                winners.forEach { player ->
+                    jobs.add(this.launch {
+                        PrisonersDilemmaGame(
+                            roundsToPlay = numRounds,
+                            interactiveMode = false,
+                            // The one being tested will always be player A:
+                            playerA = player,
+                            playerB = PrisonersDilemmaPlayer(),
+                        ).play()
+                    })
+                }
+
+                jobs.forEach { it.join() }
+            }
+        }
+
+        return winners
+            .map { it.asBinaryString() }
+            .zip(winners.map { it.score })
+            .toMap()
+    }
+
     enum class ProgressAlertType {
         LIGHT,
         VERBOSE
@@ -79,34 +109,35 @@ class PrisonersDilemmaPlayground {
      */
     suspend fun runExperiment(
         // TODO: Make this more abstract
-        coroutineScope: CoroutineScope,
         numGenerations: Int = defaultGenerations,
         numRounds: Int = defaultPrisonersDilemmaRounds,
         genePoolSize: Int = defaultGenePoolSize,
         progressAlerts: ProgressAlertType? = null
-    ) {
+    ) = coroutineScope {
         // Keep a running tally of generational metadata:
         val metadataList = mutableListOf<PrisonersDilemmaGenerationMetadata>()
 
         // Set up a gene pool:
-        println("Setting up initial gene pool...")
+        if (progressAlerts != null)
+            println("Setting up initial gene pool...")
+
         var genePool = newGenePool(genePoolSize)
 
-        // The running average:
-        var runningAverageScore = 0.0
-
         // Run the tests over a number of generations:
-        println("Evolving...")
-        repeat (numGenerations) { generationNumber ->
+        if (progressAlerts != null)
+            println("Evolving...")
 
+        repeat (numGenerations) { generationNumber ->
             if (progressAlerts != null)
                 println("\t... beginning generation #$generationNumber ...")
+
+            val jobs = mutableListOf<Job>()
 
             // Have the generation pair off and each play a game, collecting the average score:
             genePool
                 .chunked(2)
                 .forEach { pair ->
-                    coroutineScope.launch {
+                    jobs.add(this.launch {
                         val playerA = pair.first()
                         val playerB = pair.last()
                         PrisonersDilemmaGame(
@@ -115,25 +146,22 @@ class PrisonersDilemmaPlayground {
                             playerA = playerA,
                             playerB = playerB
                         ).play().let { gameResult ->
-                            playerA.gameResult = gameResult
-                            playerB.gameResult = gameResult
-                            runningAverageScore += gameResult.playerAAverageScore + gameResult.playerBAverageScore
+                            playerA.gameResults.add(gameResult)
+                            playerB.gameResults.add(gameResult)
                         }
-                    }
+                     })
                 }
 
             // Wait for all coroutines to complete:
-            delayUntilReady(genePool)
-
-            // Compute the final average score:
-            runningAverageScore /= genePoolSize
+            jobs.forEach { it.join() }
 
             // Add some metadata for the generation:
+            val averageScoreForGeneration = averageScoreForGeneration(genePool)
             metadataList.add(PrisonersDilemmaGenerationMetadata(
                 generationNumber = generationNumber,
                 generationSize = genePoolSize,
-                averageScore = runningAverageScore,
-                numAboveAverageScore = numAboveAverage(genePool, runningAverageScore),
+                averageScore = averageScoreForGeneration,
+                numFit = numFit(genePool, averageScoreForGeneration),
                 championString = championString(genePool),
                 roundsPerGame = numRounds,
                 activeGenePercentages = activeGenePercentages(genePool),
@@ -147,23 +175,34 @@ class PrisonersDilemmaPlayground {
             }
 
             // Produce a new generation:
-            genePool = nextGeneration(genePool, runningAverageScore)
+            genePool = nextGeneration(genePool, averageScoreForGeneration)
         }
 
         // add the final generation:
         metadataList.add(PrisonersDilemmaGenerationMetadata(
             generationNumber = numGenerations,
             generationSize = genePoolSize,
-            averageScore = runningAverageScore,
-            numAboveAverageScore = numAboveAverage(genePool, runningAverageScore),
+            averageScore = averageScoreForGeneration(genePool),
+            numFit = numFit(genePool, averageScoreForGeneration(genePool)),
             championString = championString(genePool),
             roundsPerGame = numRounds,
             activeGenePercentages = activeGenePercentages(genePool),
             genomesFrequency = genomePercentages(genePool)
         ))
 
+        if (progressAlerts != null)
+            println("Evolution complete!")
+
+        // Compare the winners against a control group:
+        if (progressAlerts != null)
+            println("Testing the winners against control group...")
+
+        val controlTestResults = controlTestWinners(
+            generation = genePool,
+            numRounds = numRounds
+        )
+
         // Print metadata (will use much more complex analysis later on, and should probably go in files):
-        println("Evolution complete!")
         println("Metadata for each generation:")
         metadataList.forEach { metadata ->
             println(metadata.prettyPrint())
@@ -172,7 +211,9 @@ class PrisonersDilemmaPlayground {
         }
         println("The frequency of all genomes which exist in the final generation:")
         println(metadataList.last().printGenomeFrequencies())
-        println("The Grand Champion:")
-        println(metadataList.last().championString)
+        println("The surviving genomes acquitted themselves thus:")
+        controlTestResults.forEach { entry ->
+            println("\tGenome: ${entry.key} | Avg. Score: ${entry.value}")
+        }
     }
 }
