@@ -1,4 +1,4 @@
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 
 /**
  * Runs a given number of generations, checking for fitness and reproducing the most fit every time.
@@ -9,7 +9,7 @@ import kotlinx.coroutines.coroutineScope
  *  Compose Multiplatform for that eventually, but in the interim (for at least the next few weeks), I will mostly
  *  be printing either to screen (as of this writing) or to files which can be fed into graph viz software (next up).
  */
-suspend fun main(args: Array<String>) = coroutineScope {
+fun main(args: Array<String>) = runBlocking {
     /*
         Note that the number of generations can have a very large effect. Initially, the gene pool will be
         very random and so obviously good strategies will prevail. However, as it gets in to several hundred
@@ -20,7 +20,6 @@ suspend fun main(args: Array<String>) = coroutineScope {
         other) and the gene pool size very large (10k+).
      */
     PrisonersDilemmaPlayground().runExperiment(
-        coroutineScope = this,
         numGenerations = defaultGenerations,
         numRounds = defaultPrisonersDilemmaRounds,
         genePoolSize = defaultGenePoolSize,
