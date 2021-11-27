@@ -13,22 +13,22 @@
 /**
  * The quick sort function.
  */
-fun quickSortClassifiersByDescendingAverage(
+fun quickSortClassifiersByAscendingAverage(
     list: MutableList<PrisonersDilemmaPlayer>,
     lowIndex: Int,
     highIndex: Int,
 ) {
     if (lowIndex >= 0 && highIndex >= 0 && lowIndex < highIndex) {
-        val pivotIndex = partitionClassifiersByDescendingAverage(list, lowIndex, highIndex)
-        quickSortClassifiersByDescendingAverage(list, lowIndex, pivotIndex)
-        quickSortClassifiersByDescendingAverage(list, pivotIndex + 1, highIndex)
+        val pivotIndex = partitionClassifiersByAscendingAverage(list, lowIndex, highIndex)
+        quickSortClassifiersByAscendingAverage(list, lowIndex, pivotIndex)
+        quickSortClassifiersByAscendingAverage(list, pivotIndex + 1, highIndex)
     }
 }
 
 /**
  * The partition function on which the quick sort function depends.
  */
-fun partitionClassifiersByDescendingAverage(
+fun partitionClassifiersByAscendingAverage(
     list: MutableList<PrisonersDilemmaPlayer>,
     lowIndex: Int,
     highIndex: Int
@@ -38,10 +38,10 @@ fun partitionClassifiersByDescendingAverage(
     var rightIndex = highIndex + 1
     while (true) {
         do { leftIndex++ }
-        while (list[leftIndex].averageScore > pivotValue)
+        while (list[leftIndex].averageScore < pivotValue)
 
         do { rightIndex-- }
-        while (list[rightIndex].averageScore < pivotValue)
+        while (list[rightIndex].averageScore > pivotValue)
 
         if (leftIndex >= rightIndex)
             return rightIndex
