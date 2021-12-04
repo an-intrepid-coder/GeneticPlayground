@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
     The number of generations for the whole experiment. This is pretty arbitrary and you only need a few dozen to
     see how effective it is. It can be fun to see how far it will optimize over hundreds of generations, though.
  */
-const val defaultGenerations = 500
+const val defaultGenerations = 1000
 
 // The number of rounds per game of Iterated Prisoner's Dilemma is chosen from a random range:
 val prisonersDilemmaRoundRange = 100..200

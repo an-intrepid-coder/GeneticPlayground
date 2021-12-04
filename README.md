@@ -1,5 +1,7 @@
 # Genetic Playground
 
+![Mid-Simulation](images/geneticPlaygroundScreen.png)
+
 Having been inspired by a paper ([*Genetic Algorithms* by John H. Holland](http://www2.econ.iastate.edu/tesfatsi/holland.GAIntro.htm)), I'm going to try my hand at this.
 
 **Goal:** A personal (toy, for now) framework which can solve problems using a Genetic Programming approach, as described in the paper above.

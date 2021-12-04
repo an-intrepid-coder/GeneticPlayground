@@ -188,7 +188,7 @@ class PrisonersDilemmaPlayground {
             // Produce a new generation using the average within the pool as the selective pressure:
             val nextGeneration = nextGeneration(genePool, metadata.averageScoreWithinPool)
 
-            // Collect test data for the generation: // TODO: This isn't quite there yet. Close though!
+            // Collect test data for the generation:
             prisonersDilemmaBots.forEach { bot ->
                 genePool.forEach { player ->
                     activeJobs.add(launch {
