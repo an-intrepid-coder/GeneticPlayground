@@ -25,7 +25,9 @@ data class PrisonersDilemmaGameResult(
 )
 
 /**
- * A rendition of the Prisoner's Dilemma game.
+ * A rendition of the Prisoner's Dilemma game. Modeled after the rules on Wikipedia with the slight difference
+ * that I am using positive numbers for the scoring (and therefore the best score is lower, like in golf), rather
+ * than negative numbers. Technically this is a game of Iterated Prisoner's Dilemma.
  */
 class PrisonersDilemmaGame(
     val roundsToPlay: Int,
@@ -33,6 +35,7 @@ class PrisonersDilemmaGame(
     val playerA: PrisonersDilemmaPlayer,
     val playerB: PrisonersDilemmaPlayer,
 ) {
+    private val decisionTree = DecisionTree()
     var roundsPassed = 0
     var previousRounds = mutableListOf<PrisonersDilemmaRoundResult>()
 
@@ -60,8 +63,8 @@ class PrisonersDilemmaGame(
                 }
             }
             else -> when (playerLabel) {
-                PrisonersDilemmaPlayerLabel.PLAYER_A -> playerA.chooseMove(this)
-                PrisonersDilemmaPlayerLabel.PLAYER_B -> playerB.chooseMove(this)
+                PrisonersDilemmaPlayerLabel.PLAYER_A -> playerA.chooseMove(this, decisionTree)
+                PrisonersDilemmaPlayerLabel.PLAYER_B -> playerB.chooseMove(this, decisionTree)
             }
         }
     }
