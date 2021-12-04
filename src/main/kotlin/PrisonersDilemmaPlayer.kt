@@ -1,22 +1,17 @@
 /**
- * Returns a random rule set of Characteristics for a PrisonersDilemmaPlayer. This is how the initial "gene pool"
- * is drawn.
+ * THe Characteristics for a PrisonersDilemmaPlayer each represent a possible combination of moves
+ * during play, and an active or inactive gene at that point represents COOPERATION or DEFECTION. In this
+ * case it is simplest to name the genes after the Index that it would have if this were an array of 1s and 0s.
  */
 fun randomPrisonersDilemmaCharacteristics(): List<Characteristic> {
-    return listOf(
-        Characteristic("aggressive"),
-        Characteristic("competitive"),
-        Characteristic("contrarian"),
-        Characteristic("copycat"),
-        Characteristic("grateful"),
-        Characteristic("kind"),
-        Characteristic("memory"),
-        Characteristic("opportunistic"),
-        Characteristic("spontaneous"),
-        Characteristic("teamPlayer"),
-        Characteristic("vindictive"),
-    )
-    // ^^^ More to be sure, but this is a good start. ^^^
+    val decisionTree = DecisionTree()
+
+    return mutableListOf<Characteristic>().let { characteristics ->
+        repeat (decisionTree.numNodes) { index ->
+            characteristics.add(Characteristic((index + 1).toString()))
+        }
+        characteristics
+    }
 }
 
 /**
@@ -26,32 +21,71 @@ fun playerFromBitString(bitString: String): PrisonersDilemmaPlayer {
     fun indexActive(index: Int): Boolean {
         return bitString[index] == '1'
     }
-    return PrisonersDilemmaPlayer(characteristics = listOf(
-        Characteristic("aggressive", indexActive(0)),
-        Characteristic("competitive", indexActive(1)),
-        Characteristic("contrarian", indexActive(2)),
-        Characteristic("copycat", indexActive(3)),
-        Characteristic("grateful", indexActive(4)),
-        Characteristic("kind", indexActive(5)),
-        Characteristic("memory", indexActive(6)),
-        Characteristic("opportunistic", indexActive(7)),
-        Characteristic("spontaneous", indexActive(8)),
-        Characteristic("teamPlayer", indexActive(9)),
-        Characteristic("vindictive", indexActive(10)),
-    ))
+    val characteristics = mutableListOf<Characteristic>()
+    bitString.indices.forEach { bitIndex ->
+        characteristics.add(
+            when (indexActive(bitIndex)) {
+                true -> Characteristic(bitIndex.toString(), active = true)
+                else -> Characteristic(bitIndex.toString(), active = false)
+            }
+        )
+    }
+    return PrisonersDilemmaPlayer(characteristics)
 }
 
 /**
- * Represents a rule set which attempts to play Prisoner's Dilemma. In theory, this should work.
+ * A list of control bots to test the gene pool against. titForTat is considered a good strategy for the game of
+ * Prisoner's Dilemma. How a generation does on average against these archetypes will say a lot about how good
+ * it is.
+ */
+val prisonersDilemmaBots = listOf(
+    PrisonersDilemmaPlayer(
+        botName = "alwaysDefects",
+        botBehavior = {  _, _ ->
+            DilemmaChoice.DEFECT
+        }
+    ),
+    PrisonersDilemmaPlayer(
+        botName = "alwaysCooperates",
+        botBehavior = { _, _ ->
+            DilemmaChoice.COOPERATE
+        }
+    ),
+    PrisonersDilemmaPlayer(
+        botName = "titForTat",
+        botBehavior = { self, game ->
+            if (game.roundsPassed == 0)
+                DilemmaChoice.COOPERATE
+            else {
+                val lastRound = game.previousRounds.last()
+                self.opponent!!.previousChoice(lastRound)
+            }
+        }
+    )
+)
+
+/**
+ * PrisonersDilemmaPlayer is a Classifier with one goal: Get the lowest score possible while playing Prisoner's
+ * Dilemma. Most combinations of Characteristics will result in poor Classifiers, but what makes the Genetic Algorithm
+ * so interesting is that it will hone in on relatively optimal strategies in less generations than one would
+ * expect.
  */
 class PrisonersDilemmaPlayer(
     characteristics: List<Characteristic> = randomPrisonersDilemmaCharacteristics(),
     var playerLabel: PrisonersDilemmaPlayerLabel? = null,
-    var gameResults: MutableList<PrisonersDilemmaGameResult> = mutableListOf(),
-    var opponent: PrisonersDilemmaPlayer? = null
-    // TODO: Track the "age" of the player, as not all Classifiers perish every generation, and that would be
-    //  cool to know.
+    var opponent: PrisonersDilemmaPlayer? = null,
+    val botName: String? = null,
+    val botBehavior: ((PrisonersDilemmaPlayer, PrisonersDilemmaGame) -> DilemmaChoice)? = null,
 ) : Classifier(characteristics) {
+
+    /**
+     * Returns a copy of the classifier that is one generation older.
+     */
+    override fun emitSurvivor(): Classifier {
+        val survivor = playerFromBitString(this.asBinaryString())
+        survivor.age = this.age + 1
+        return survivor
+    }
 
     /**
      * Following the recipe in John Holland's paper, this combines two Classifiers in to two offspring, using
@@ -91,11 +125,11 @@ class PrisonersDilemmaPlayer(
     }
 
     /**
-     * Default memory size is 3, while those with the memory characteristic have 15.
+     * Grabs a slice of the previous rounds played in the game based on the depth of the DecisionTree
+     * used for the players.
      */
     private fun turnMemory(game: PrisonersDilemmaGame): List<PrisonersDilemmaRoundResult> {
-        val memorySize = defaultMemorySize + if (hasActiveGene("memory")) memoryModifier else 0
-        val sliceRangeStart = (game.previousRounds.size - memorySize).coerceAtLeast(0)
+        val sliceRangeStart = (game.previousRounds.size - decisionTreeDepth).coerceAtLeast(0)
         return game.previousRounds.slice(sliceRangeStart until game.previousRounds.size)
     }
 
@@ -112,99 +146,46 @@ class PrisonersDilemmaPlayer(
     }
 
     /**
-     * There is a base 50/50 chance to DEFECT or COOPERATE, and through individual Characteristics and interactive
-     * combinations of them, this chance is raised or lowered. At the end it is a roll of the dice based on these
-     * interactions.
+     * Returns the score the player got from the last round.
      */
-    fun chooseMove(game: PrisonersDilemmaGame): DilemmaChoice {
-        // Base chance to defect is 50/50:
-        var defectChance = defaultDefectChance
-
-        // If aggressive, then is more likely to defect.
-        if (hasActiveGene("aggressive"))
-            defectChance += aggressionModifier
-
-        // If kind, then is less likely to defect.
-        if (hasActiveGene("kindness"))
-            defectChance += kindnessModifier
-
-        // Set the memory:
-        val turnMemory = turnMemory(game)
-
-        // Vindictive players are more likely to defect for every time in recent memory that the other has defected.
-        if (hasActiveGene("vindictive")) {
-            turnMemory.forEach { roundResult ->
-                if (opponent!!.previousChoice(roundResult) == DilemmaChoice.DEFECT)
-                    defectChance += vindictiveModifier
-            }
+    fun previousPayoff(
+        roundResult: PrisonersDilemmaRoundResult,
+    ): Int {
+        return when (playerLabel) {
+            PrisonersDilemmaPlayerLabel.PLAYER_A -> roundResult.playerAScore
+            else -> roundResult.playerBScore
         }
+    }
 
-        // Grateful players are more likely to cooperate for every time the other has cooperated in recent memory.
-        if (hasActiveGene("grateful")) {
-            turnMemory.forEach { roundResult ->
-                if (opponent!!.previousChoice(roundResult) == DilemmaChoice.COOPERATE)
-                    defectChance += gratefulModifier
-            }
+    /**
+     * Returns true if the given previous round was a win.
+     */
+    fun previousWin(
+        roundResult: PrisonersDilemmaRoundResult,
+    ): Boolean {
+        return when (playerLabel) {
+            PrisonersDilemmaPlayerLabel.PLAYER_A -> roundResult.playerAScore == rewardPayoff || roundResult.playerAScore == temptationPayoff
+            else -> roundResult.playerBScore == rewardPayoff || roundResult.playerBScore == temptationPayoff
         }
+    }
 
-        // If the player has the "competitive" gene then they are more likely to defect if they are behind:
-        if (hasActiveGene("competitive")) {
-            if (score < opponent!!.score)
-                defectChance += competitiveModifier
-        }
+    /**
+     * Uses a map of all possible decisions within the given window and returns COOPERATE or DEFECT depending
+     * on whether the indicated sequence of events is mapped to an active Characteristic.
+     */
+    fun chooseMove(
+        game: PrisonersDilemmaGame,
+        decisionTree: DecisionTree,
+    ): DilemmaChoice {
+        if (botBehavior != null)
+            return botBehavior.invoke(this, game)
 
-        // If the player has the "spontaneous" gene then there is a chance to abandon the plan and choose randomly:
-        if (hasActiveGene("spontaneous")) {
-            if (withChance(diceMax, spontaneityChance)) {
-                return when (coinFlip()) {
-                    true -> DilemmaChoice.DEFECT
-                    else -> DilemmaChoice.COOPERATE
-                }
-            }
-        }
-
-        // If the player has the "opportunistic" gene then it will always choose to defect if the player has
-        // made a majority of COOPERATE moves in recent memory.
-        if (hasActiveGene("opportunistic")) {
-            val numTimesEnemyDefected = turnMemory.filter { roundResult ->
-                opponent!!.previousChoice(roundResult) == DilemmaChoice.DEFECT
-            }.size
-            val numTimesEnemyCooperated = turnMemory.filter { roundResult ->
-                opponent!!.previousChoice(roundResult) == DilemmaChoice.COOPERATE
-            }.size
-            if (numTimesEnemyCooperated > numTimesEnemyDefected)
-                return DilemmaChoice.DEFECT
-        }
-
-        // If the player has the "copycat" gene then it is more likely to do whatever the player did on the
-        // last round.
-        if (hasActiveGene("copycat") && turnMemory.isNotEmpty()) {
-            val lastRound = turnMemory.last()
-            defectChance += when (opponent!!.previousChoice(lastRound)) {
-                DilemmaChoice.DEFECT -> copycatModifier
-                DilemmaChoice.COOPERATE -> -copycatModifier
-            }
-        }
-
-        // If the player has the "teamPlayer" characteristic and the opponent has the "teamPlayer" characteristic
-        //  then it is more likely to cooperate:
-        if (hasActiveGene("teamPlayer") && opponent!!.hasActiveGene("teamPlayer"))
-            defectChance += teamPlayerModifier
-
-        // Bound the defectChance:
-        defectChance = defectChance
-            .coerceAtLeast(0)
-            .coerceAtMost(diceMax)
-
-        // If the player has the "contrarian" characteristic then the defectChance is sometimes inverted before rolling
-        //  (making it something of a wildcard):
-        if (hasActiveGene("contrarian") && withChance(diceMax, contrarianChance))
-            defectChance = diceMax - defectChance
-
-        // Roll the dice and make a choice:
-        return when (withChance(diceMax, defectChance)) {
-            true -> DilemmaChoice.DEFECT
-            else -> DilemmaChoice.COOPERATE
+        val previousRounds = turnMemory(game)
+        // If not a bot, it will do exactly as the decision tree mapped on to its genome dictates:
+        val decisionIndex = decisionTree.returnIndexOfMoveSet(previousRounds)
+        return when (hasActiveGene(decisionIndex.toString())) {
+            true -> DilemmaChoice.COOPERATE
+            else -> DilemmaChoice.DEFECT
         }
     }
 }
