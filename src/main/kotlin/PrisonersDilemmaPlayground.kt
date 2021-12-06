@@ -1,6 +1,5 @@
 import kotlinx.coroutines.*
 import kotlin.math.pow
-import kotlin.system.exitProcess
 
 enum class PrisonersDilemmaPlaygroundPhase {
     SETUP,
@@ -8,83 +7,18 @@ enum class PrisonersDilemmaPlaygroundPhase {
     FINISHED,
 }
 
+enum class PoolEvolutionMode {
+    GRADUAL,
+    RAPID,
+    STABLE
+}
+
 /**
  * This is the simulation which brings the game and the players together and runs the experiment.
  * It holds the data in a way that Compose can read while it is running.
- *
- * TODO: Make an abstract class which this implements:
  */
-class PrisonersDilemmaPlayground {
+class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
     var metadata =  PrisonersDilemmaPlaygroundMetadata()
-    var activeJobs = mutableListOf<Job>()
-    var cancelled = false
-
-    /**
-     * Pauses execution until all coroutines have joined and then clears the list of active jobs.
-     */
-    private suspend fun joinAndClearActiveJobs() {
-        activeJobs.forEach { it.join() }
-        activeJobs = mutableListOf()
-    }
-
-    /**
-     * Cancels and exits the simulation. Note that this is the safest way to shut it down for now, as
-     * simply closing the window will not kill all the threads in the GlobalScope. This is because I am still
-     * learning about concurrency and need to implement a more robust solution in the near future.
-     */
-    fun cancelAndExit() {
-        cancelled = true
-        activeJobs.forEach { it.cancel() }
-        exitProcess(0)
-    }
-
-    /**
-     * Returns a new gene pool with random Characteristics for each Classifier.
-     */
-    private fun newGenePool(
-        // TODO: Make this more abstract
-        genePoolSize: Int,
-    ): List<PrisonersDilemmaPlayer> {
-        val genePool = mutableListOf<PrisonersDilemmaPlayer>()
-        repeat (genePoolSize) {
-            genePool.add(PrisonersDilemmaPlayer())
-        }
-        return genePool
-    }
-
-    /**
-     * Returns a new generation containing the offspring of the most fit in the previous generation who replace
-     * the least fit.
-     */
-    private fun nextGeneration(
-        // TODO: Make this more abstract
-        genePool: List<PrisonersDilemmaPlayer>,
-        averageScore: Double,
-    ): List<PrisonersDilemmaPlayer> {
-        val newGeneration = mutableListOf<PrisonersDilemmaPlayer>()
-
-        // Above Average players reproduce:
-        genePool
-            .filter { it.score < averageScore }
-            .chunked(2)
-            .forEach { pair ->
-                when (pair.size) {
-                    1 -> newGeneration.add(pair.first().emitSurvivor() as PrisonersDilemmaPlayer)
-                    2 -> pair.first().combine(pair.last()).forEach { offspring ->
-                        newGeneration.add(offspring as PrisonersDilemmaPlayer)
-                    }
-                }
-            }
-
-        // Fill in the remainder from the most fit of the previous generation:
-        val sortedByScore = genePool.sortedBy { it.score }
-        for (survivor in sortedByScore) {
-            if (newGeneration.size >= genePool.size) break
-            newGeneration.add(survivor.emitSurvivor() as PrisonersDilemmaPlayer)
-        }
-
-        return newGeneration.shuffled()
-    }
 
     /**
      * The experiment is pretty straightforward: The size of the gene pool never changes. The most fit reproduce
@@ -95,23 +29,38 @@ class PrisonersDilemmaPlayground {
      * much progress they have made as a whole relative to known archetypes. They will rather quickly reach a
      * sort of equilibrium which is in general pretty effective (even against good bots such as titForTat).
      *
-     * Note that there are other things which could be chosen for the selective pressure. Selecting against totally
-     * random opponents each generation is an interesting one, for example. Also, this simulation was built to be very
-     * demonstrative, and it could be sped up by removing some fluff which exists only to make it easier to
-     * track numbers during runtime. However, as my goal was to demonstrate something from the paper, I am okay
-     * with this tradeoff.
+     * When the experiment is in demoMode, it displays a lot of additional information in the front-end which
+     * allows the user to observe how this works. This stuff takes a lot of extra cycles to calculate and display,
+     * and it is possible to turn off demoMode in order to see how fast this can be when more optimized. When
+     * demoMode is off, most cycle-wasting actions are locked behind an if-statement.
      */
     suspend fun runExperiment(
-        // TODO: Make this more abstract
-        numGenerations: Int = defaultGenerations,
         numRoundsRange: IntRange = prisonersDilemmaRoundRange,
         genePoolSize: Int = defaultGenePoolSize,
-    ) = coroutineScope {
+        demoMode: Boolean = false,
+    ) {
+        val coroutineScope = coroutineHandler.coroutineScope
 
         // Set up a gene pool:
-        var genePool = newGenePool(genePoolSize)
+        val classifierPool = PrisonersDilemmaPlayerPool(genePoolSize)
 
-        activeJobs = mutableListOf()
+        /**
+         * Gives a rough indication of how fast the pool is evolving based on the average age.
+         * This is "demo fluff" and is only active when demoMode is enabled.
+         */
+        fun poolMode(): PoolEvolutionMode {
+            val stableCutoff = 10.0
+            val gradualCutoff = 0.005
+            return if (metadata.averageAge > stableCutoff)
+                PoolEvolutionMode.STABLE
+            else if (metadata.averageAge > gradualCutoff)
+                PoolEvolutionMode.GRADUAL
+            else
+                PoolEvolutionMode.RAPID
+        }
+
+        // Ensure there are no active jobs:
+        coroutineHandler.joinAndClearActiveJobs()
 
         // Set up the set of all seen genomes:
         val seenGenomes = mutableSetOf<String>()
@@ -123,16 +72,18 @@ class PrisonersDilemmaPlayground {
          * genetic algorithm is so good. By the time optimal solutions have been found against titForTat and
          * alwaysCooperates, often *far* less than 1% of the total "search space" will have been explored. It is a
          * neat demonstration of how these algorithms work.
+         *
+         * This is "demo fluff" and is only used during demoMode.
          */
         fun observeGenomes() {
-            genePool.asSequence()
+            classifierPool.pool.asSequence()
                 .map { it.asBinaryString() }
                 .filter { it !in seenGenomes }
                 .forEach { seenGenomes.add(it) }
 
             metadata.numSolutionsExplored = seenGenomes.size
 
-            val possibleSolutions = (2.0).pow(genePool.first().characteristics.size)
+            val possibleSolutions = (2.0).pow(classifierPool.pool.first().characteristics.size)
 
             metadata.percentSolutionsExplored = seenGenomes
                 .size
@@ -141,103 +92,126 @@ class PrisonersDilemmaPlayground {
                 .times(100.0)
         }
 
-        // Run the tests over a number of generations:
+        // Set up the metadata:
         metadata.currentPlaygroundPhase = PrisonersDilemmaPlaygroundPhase.EVOLVING
         metadata.generationSize = genePoolSize
 
-        for (generationNumber in 0..numGenerations) {
-            metadata.currentGeneration = generationNumber
+        /**
+         * For this example, the simulation is considered "over" when the pool reaches a stable equilibrium
+         * that involves having a 1.0 average score against itself, against alwaysCooperates, and against titForTat,
+         * while doing much better than a random pool against alwaysDefects and purely random bots. At this point
+         * the pool also stops evolving, because it has figured out a little niche where everybody "wins" every
+         * generation (which also happens to contain optimal strategies against titForTat, for example).
+         *
+         * There are other criteria which could be used to end the simulation instead. The fact that this demonstration
+         * is using the average score within the pool while paired off each generation leads to different
+         * behavior than if, say, average score against a titForTat bot were used each generation.
+         */
+        fun simulationOver(): Boolean {
+            return metadata.poolEvolutionMode == PoolEvolutionMode.STABLE || metadata.averageScoreWithinPool == 1.0
+        }
+
+        var generationNumber = 0
+        while (!simulationOver()) {
+            metadata.currentGeneration = generationNumber++
 
             // Pair off members of generation and have them play each other.
-            genePool
+            classifierPool.pool
                 .chunked(2)
                 .forEach { pair ->
                     if (pair.size != 2)
                         error("Players not paired off correctly.")
 
-                    activeJobs.add(launch {
+                   coroutineHandler.addJob(coroutineScope.launch {
                         PrisonersDilemmaGame(
                             roundsToPlay = numRoundsRange.random(),
                             interactiveMode = false,
-                            playerA = pair.first(),
-                            playerB = pair.last(),
+                            playerA = pair.first() as PrisonersDilemmaPlayer,
+                            playerB = pair.last() as PrisonersDilemmaPlayer,
                         ).play()
                     })
                 }
 
             // Wait for all coroutines to complete:
-            joinAndClearActiveJobs()
+            coroutineHandler.joinAndClearActiveJobs()
 
             // Collect the average scores:
-            metadata.averageScoreWithinPool = averageScoreForGeneration(genePool)
+            metadata.averageScoreWithinPool = classifierPool.averageScore()
 
             // Wait for all coroutines to complete:
-            joinAndClearActiveJobs()
+            coroutineHandler.joinAndClearActiveJobs()
 
-            // Collect the average age:
-            metadata.averageAge = genePool.sumOf { it.age }.toDouble() / genePool.size.toDouble()
+            if (demoMode) {
+                // Collect the average age:
+                metadata.averageAge = classifierPool.pool.sumOf { it.age }.toDouble() / genePoolSize
 
-            // Collect the eldest:
-            val eldest = genePool.maxByOrNull { it.age }!!
-            metadata.currentEldest = eldest.asBinaryString()
-            metadata.currentEldestAge = eldest.age
+                // Collect the eldest:
+                val eldest = classifierPool.pool.maxByOrNull { it.age }!!
+                metadata.currentEldest = eldest.asBinaryString()
+                metadata.currentEldestAge = eldest.age
 
-            // Collect # of species:
-            metadata.numSpecies = genomePercentages(genePool).size
+                // Pool evolution mode (how fast is it evolving?):
+                metadata.poolEvolutionMode = poolMode()
+
+                // Collect # of species:
+                metadata.numSpecies = classifierPool.numDistinctClassifiers()
+            }
 
             // Produce a new generation using the average within the pool as the selective pressure:
-            val nextGeneration = nextGeneration(genePool, metadata.averageScoreWithinPool)
+            val nextGeneration = classifierPool.nextGeneration()
 
-            // Collect test data for the generation:
-            prisonersDilemmaBots.forEach { bot ->
-                genePool.forEach { player ->
-                    activeJobs.add(launch {
+            if (demoMode) {
+                // Collect test data for the generation:
+                prisonersDilemmaBots.forEach { entry ->
+                    classifierPool.pool.forEach { player ->
+                        coroutineHandler.addJob(coroutineScope.launch {
+                            PrisonersDilemmaGame(
+                                roundsToPlay = numRoundsRange.random(),
+                                interactiveMode = false,
+                                playerA = player as PrisonersDilemmaPlayer,
+                                playerB = entry.value,
+                            ).play()
+                        })
+                    }
+
+                    // Wait for all coroutines to complete:
+                    coroutineHandler.joinAndClearActiveJobs()
+
+                    when (entry.key) {
+                        // Add average score against the type of bot:
+                        "alwaysDefects" -> metadata.averageScoreAgainstAlwaysDefects = classifierPool.averageScore()
+                        "alwaysCooperates" -> metadata.averageScoreAgainstAlwaysCooperates = classifierPool.averageScore()
+                        "titForTat" -> metadata.averageScoreAgainstTitForTat = classifierPool.averageScore()
+                    }
+                }
+
+                // Test against pure random bots:
+                classifierPool.pool.forEach { player ->
+                    coroutineHandler.addJob(coroutineScope.launch {
                         PrisonersDilemmaGame(
                             roundsToPlay = numRoundsRange.random(),
                             interactiveMode = false,
-                            playerA = player,
-                            playerB = bot,
+                            playerA = player as PrisonersDilemmaPlayer,
+                            playerB = PrisonersDilemmaPlayer(),
                         ).play()
                     })
                 }
 
                 // Wait for all coroutines to complete:
-                joinAndClearActiveJobs()
+                coroutineHandler.joinAndClearActiveJobs()
 
-                when (bot.botName) {
-                    // Add average score against the type of bot:
-                    "alwaysDefects" -> metadata.averageScoreAgainstAlwaysDefects = averageScoreForGeneration(genePool)
-                    "alwaysCooperates" -> metadata.averageScoreAgainstAlwaysCooperates = averageScoreForGeneration(genePool)
-                    "titForTat" -> metadata.averageScoreAgainstTitForTat = averageScoreForGeneration(genePool)
-                }
+                // Add average score against pure random bots:
+                metadata.averageScoreAgainstRandom = classifierPool.averageScore()
+
+                // Observe current genomes:
+                observeGenomes()
             }
-
-            // Test against pure random bots:
-            genePool.forEach { player ->
-                activeJobs.add(launch {
-                    PrisonersDilemmaGame(
-                        roundsToPlay = numRoundsRange.random(),
-                        interactiveMode = false,
-                        playerA = player,
-                        playerB = PrisonersDilemmaPlayer(),
-                    ).play()
-                })
-            }
-
-            // Wait for all coroutines to complete:
-            joinAndClearActiveJobs()
-
-            // Add average score against pure random bots:
-            metadata.averageScoreAgainstRandom = averageScoreForGeneration(genePool)
-
-            // Observe current genomes:
-            observeGenomes()
 
             // Set the new generation:
-            genePool = nextGeneration
+            classifierPool.pool = nextGeneration
 
-            if (cancelled) {
-                joinAndClearActiveJobs()
+            if (coroutineHandler.cancelled) {
+                coroutineHandler.joinAndClearActiveJobs()
                 delay(1000)
                 break
             }
