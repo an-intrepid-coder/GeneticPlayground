@@ -10,6 +10,7 @@ class PrisonersDilemmaPlaygroundMetadata {
     var currentGeneration by mutableStateOf(-1)
     var generationSize: Int by mutableStateOf(0)
     var currentPlaygroundPhase by mutableStateOf(PrisonersDilemmaPlaygroundPhase.SETUP)
+    var poolEvolutionMode by mutableStateOf(PoolEvolutionMode.GRADUAL)
     var averageAge by mutableStateOf(0.0)
     var averageScoreWithinPool by mutableStateOf(0.0)
     var averageScoreAgainstAlwaysDefects by mutableStateOf(0.0)
