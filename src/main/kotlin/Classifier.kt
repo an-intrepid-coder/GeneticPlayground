@@ -65,7 +65,7 @@ abstract class Classifier(
     }
 
     /**
-     * Returns how many instances of a given gene are active in a Classifier:
+     * Returns whether or not the named "gene" is active.
      */
     fun hasActiveGene(geneName: String): Boolean {
         return characteristics.any { it.name == geneName && it.active }
