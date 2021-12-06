@@ -17,7 +17,7 @@ fun randomPrisonersDilemmaCharacteristics(): List<Characteristic> {
 /**
  * Returns a new player with characteristics that match the given bit string.
  */
-fun playerFromBitString(bitString: String): PrisonersDilemmaPlayer {
+fun prisonersDilemmaPlayerFromBitString(bitString: String): PrisonersDilemmaPlayer {
     fun indexActive(index: Int): Boolean {
         return bitString[index] == '1'
     }
@@ -38,29 +38,35 @@ fun playerFromBitString(bitString: String): PrisonersDilemmaPlayer {
  * Prisoner's Dilemma. How a generation does on average against these archetypes will say a lot about how good
  * it is.
  */
-val prisonersDilemmaBots = listOf(
-    PrisonersDilemmaPlayer(
-        botName = "alwaysDefects",
-        botBehavior = {  _, _ ->
-            DilemmaChoice.DEFECT
-        }
-    ),
-    PrisonersDilemmaPlayer(
-        botName = "alwaysCooperates",
-        botBehavior = { _, _ ->
-            DilemmaChoice.COOPERATE
-        }
-    ),
-    PrisonersDilemmaPlayer(
-        botName = "titForTat",
-        botBehavior = { self, game ->
-            if (game.roundsPassed == 0)
-                DilemmaChoice.COOPERATE
-            else {
-                val lastRound = game.previousRounds.last()
-                self.opponent!!.previousChoice(lastRound)
+val prisonersDilemmaBots = mapOf(
+    Pair(
+        "alwaysDefects",
+        PrisonersDilemmaPlayer(
+            botBehavior = {  _, _ ->
+                DilemmaChoice.DEFECT
             }
-        }
+        )
+    ),
+    Pair(
+        "alwaysCooperates",
+        PrisonersDilemmaPlayer(
+            botBehavior = { _, _ ->
+                DilemmaChoice.COOPERATE
+            }
+        )
+    ),
+    Pair(
+        "titForTat",
+        PrisonersDilemmaPlayer(
+            botBehavior = { self, game ->
+                if (game.roundsPassed == 0)
+                    DilemmaChoice.COOPERATE
+                else {
+                    val lastRound = game.previousRounds.last()
+                    self.opponent!!.previousChoice(lastRound)
+                }
+            }
+        )
     )
 )
 
@@ -74,54 +80,17 @@ class PrisonersDilemmaPlayer(
     characteristics: List<Characteristic> = randomPrisonersDilemmaCharacteristics(),
     var playerLabel: PrisonersDilemmaPlayerLabel? = null,
     var opponent: PrisonersDilemmaPlayer? = null,
-    val botName: String? = null,
     val botBehavior: ((PrisonersDilemmaPlayer, PrisonersDilemmaGame) -> DilemmaChoice)? = null,
 ) : Classifier(characteristics) {
+
 
     /**
      * Returns a copy of the classifier that is one generation older.
      */
     override fun emitSurvivor(): Classifier {
-        val survivor = playerFromBitString(this.asBinaryString())
+        val survivor = prisonersDilemmaPlayerFromBitString(this.asBinaryString())
         survivor.age = this.age + 1
         return survivor
-    }
-
-    /**
-     * Following the recipe in John Holland's paper, this combines two Classifiers in to two offspring, using
-     * a crossover technique and a chance of mutation.
-     *
-     * TODO: This should be in the super class, and I intend to put it there at some point.
-     */
-    override fun combine(other: Classifier): List<Classifier> {
-        val childACharacteristics = mutableListOf<Characteristic>()
-        val childBCharacteristics = mutableListOf<Characteristic>()
-
-        // Pick random index:
-        val crossoverIndex = characteristics.indices.random()
-
-        // Swap all characteristics to the left of the index:
-        repeat (crossoverIndex) { index ->
-            childACharacteristics.add(other.characteristics[index])
-            childBCharacteristics.add(characteristics[index])
-        }
-
-        // Leave characteristics to the right of the index:
-        for (index in crossoverIndex until characteristics.size) {
-            childACharacteristics.add(characteristics[index])
-            childBCharacteristics.add(other.characteristics[index])
-        }
-
-        // Apply a mutation chance to each offspring characteristic:
-        repeat (characteristics.size) { index ->
-            childACharacteristics[index].applyMutationFrequency(defaultMutationFrequency)
-            childBCharacteristics[index].applyMutationFrequency(defaultMutationFrequency)
-        }
-
-        return listOf(
-            PrisonersDilemmaPlayer(childACharacteristics),
-            PrisonersDilemmaPlayer(childBCharacteristics),
-        )
     }
 
     /**
