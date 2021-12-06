@@ -8,8 +8,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+
+@Composable
+fun LabeledText(
+    label: String,
+    value: String,
+) {
+    Text("$label: $value", color = BrightGreen)
+    Spacer(Modifier.height(10.dp))
+}
+
+@Composable
+fun WavyBorder() {
+    Text("~-~-~-~-~-~-~-~-", color = White)
+    Spacer(Modifier.height(10.dp))
+}
 
 /**
  * This Composable takes all the GUI strings and places them in the main LazyList. It is nothing fancy.
@@ -23,6 +37,7 @@ fun prisonersDilemmaPlaygroundData(
     numSpecies: String,
     eldest: String,
     eldestAge: String,
+    poolMode: String,
     averageScoreWithinPool: String,
     averageScoreAgainstAlwaysDefects: String,
     averageScoreAgainstAlwaysCooperates: String,
@@ -32,41 +47,59 @@ fun prisonersDilemmaPlaygroundData(
     numSolutionsExplored: String,
 ) {
     lazyListScope.item {
-        Text("Current Phase: $playgroundPhase", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("# Solutions Explored: $numSolutionsExplored", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("% Solutions Explored: $percentSolutionsExplored", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("~-~-~-~-~-~-~-~-", color = White)
-        Spacer(Modifier.height(10.dp))
-        Text("Current Generation: $generation", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("Average Age: $averageAge", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("# of Distinct Genomes in Pool: $numSpecies", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("~-~-~-~-~-~-~-~-", color = White)
-        Text("Eldest: $eldest", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("Eldest Age: $eldestAge", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("~-~-~-~-~-~-~-~-", color = White)
-        Spacer(Modifier.height(10.dp))
-        Spacer(Modifier.height(10.dp))
-        Text("Average Score Within Pool: $averageScoreWithinPool", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("Average Score of Pool vs. alwaysDefects: $averageScoreAgainstAlwaysDefects", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("Average Score of Pool vs. alwaysCooperates: $averageScoreAgainstAlwaysCooperates", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("Average Score of Pool vs. titForTat: $averageScoreAgainstTitForTat", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("Average Score of Pool vs. random: $averageScoreAgainstRandom", color = BrightGreen)
-        Spacer(Modifier.height(10.dp))
-        Text("~-~-~-~-~-~-~-~-", color = White)
-        Spacer(Modifier.height(10.dp))
+        LabeledText("Current Phase", playgroundPhase)
+        LabeledText("# Solutions Explored", numSolutionsExplored)
+        LabeledText("% Solutions Explored", percentSolutionsExplored)
+        WavyBorder()
+        LabeledText("Current Generation", generation)
+        LabeledText("Average Age", averageAge)
+        LabeledText("# of Distinct Genomes in Pool", numSpecies)
+        LabeledText("Pool Evolution Mode", poolMode)
+        WavyBorder()
+        LabeledText("Eldest", eldest)
+        LabeledText("Eldest Age", eldestAge)
+        WavyBorder()
+        LabeledText("Average Score Within Pool", averageScoreWithinPool)
+        LabeledText("Average Score of Pool vs. alwaysDefects", averageScoreAgainstAlwaysDefects)
+        LabeledText("Average Score of Pool vs. alwaysCooperates", averageScoreAgainstAlwaysCooperates)
+        LabeledText("Average Score of Pool vs. titForTat", averageScoreAgainstTitForTat)
+        LabeledText("Average Score of Pool vs. random", averageScoreAgainstRandom)
+        WavyBorder()
     }
+}
+
+@Composable
+fun StartStopButton(
+    coroutineHandler: CoroutineHandler,
+    playground: PrisonersDilemmaPlayground
+) {
+    val coroutineScope = coroutineHandler.coroutineScope
+    Button(
+        onClick = {
+            when (playground.metadata.currentPlaygroundPhase) {
+                PrisonersDilemmaPlaygroundPhase.SETUP -> {
+                    coroutineScope.launch {
+                        /*
+                            For optimized performance, turn off demoMode.
+                            Note that this will disable many of the GUI elements.
+                         */
+                        playground.runExperiment(demoMode = true)
+                    }
+                }
+                else -> {
+                    coroutineScope.launch {
+                        coroutineHandler.cancelAndExit()
+                    }
+                }
+            }
+        },
+        content = {
+            when (playground.metadata.currentPlaygroundPhase) {
+                PrisonersDilemmaPlaygroundPhase.SETUP -> Text("Start", color = White)
+                else -> Text("Cancel and Exit", color = BrightRed)
+            }
+        }
+    )
 }
 
 /**
@@ -76,9 +109,9 @@ fun prisonersDilemmaPlaygroundData(
  */
 @Composable
 fun PrisonersDilemmaPlaygroundApp(
-    coroutineScope: CoroutineScope,
+    coroutineHandler: CoroutineHandler,
 ) {
-    val playground = remember { PrisonersDilemmaPlayground() }
+    val playground = remember { PrisonersDilemmaPlayground(coroutineHandler) }
 
     LazyColumn(
         modifier = Modifier
@@ -86,30 +119,7 @@ fun PrisonersDilemmaPlaygroundApp(
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        item {
-            Button(
-                onClick = {
-                    when (playground.metadata.currentPlaygroundPhase) {
-                        PrisonersDilemmaPlaygroundPhase.SETUP -> {
-                            coroutineScope.launch {
-                                playground.runExperiment()
-                            }
-                        }
-                        else -> {
-                            coroutineScope.launch {
-                                playground.cancelAndExit()
-                            }
-                        }
-                    }
-                },
-                content = {
-                    when (playground.metadata.currentPlaygroundPhase) {
-                        PrisonersDilemmaPlaygroundPhase.SETUP -> Text("Start", color = White)
-                        else -> Text("Cancel and Exit", color = BrightRed)
-                    }
-                }
-            )
-        }
+        item { StartStopButton(coroutineHandler, playground) }
 
         prisonersDilemmaPlaygroundData(
             lazyListScope = this,
@@ -122,6 +132,7 @@ fun PrisonersDilemmaPlaygroundApp(
             averageScoreAgainstRandom = playground.metadata.averageScoreAgainstRandom.toString(),
             eldest = playground.metadata.currentEldest,
             eldestAge = playground.metadata.currentEldestAge.toString(),
+            poolMode = playground.metadata.poolEvolutionMode.toString(),
             numSpecies = playground.metadata.numSpecies.toString(),
             playgroundPhase = playground.metadata.currentPlaygroundPhase.toString(),
             percentSolutionsExplored = playground.metadata.percentSolutionsExplored.toString(),
