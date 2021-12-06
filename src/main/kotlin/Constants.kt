@@ -1,16 +1,10 @@
 import androidx.compose.ui.graphics.Color
 
-/*
-    The number of generations for the whole experiment. This is pretty arbitrary and you only need a few dozen to
-    see how effective it is. It can be fun to see how far it will optimize over hundreds of generations, though.
- */
-const val defaultGenerations = 1000
-
 // The number of rounds per game of Iterated Prisoner's Dilemma is chosen from a random range:
 val prisonersDilemmaRoundRange = 100..200
 
 // The static size of the "gene pool" from which Classifiers are drawn from and reproduce back in to:
-const val defaultGenePoolSize = 8000
+const val defaultGenePoolSize = 3000
 
 /*
     The depth of the decision tree represents how many turns "back" each player will attempt to account for.
