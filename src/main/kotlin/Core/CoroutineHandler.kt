@@ -1,3 +1,5 @@
+package Core
+
 import kotlinx.coroutines.*
 import kotlin.system.exitProcess
 

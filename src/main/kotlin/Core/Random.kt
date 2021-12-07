@@ -1,3 +1,5 @@
+package Core
+
 /**
  * Returns true with a frequency of chanceOf/outOf.
  */

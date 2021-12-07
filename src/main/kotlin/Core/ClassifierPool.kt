@@ -1,3 +1,5 @@
+package Core
+
 /**
  * A blueprint for a "pool" of Classifiers.
  */
@@ -10,13 +12,13 @@ abstract class ClassifierPool(
     lateinit var pool: List<Classifier>
 
     /**
-     * Initializes a new gene as a list of the appropriate Classifier type.
+     * Initializes a new gene as a list of the appropriate Core.Classifier type.
      */
     abstract fun newClassifierPool(): List<Classifier>
 
     /**
      * Produces a new generation by measuring the old generation and
-     * reproducing based on criteria appropriate for the given Classifier.
+     * reproducing based on criteria appropriate for the given Core.Classifier.
      */
     abstract fun nextGeneration(): List<Classifier>
 

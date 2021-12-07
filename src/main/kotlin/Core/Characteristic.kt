@@ -1,5 +1,7 @@
+package Core
+
 /**
- * The "gene" of the Classifier system. It has a name, an active/inactive boolean, and behavior which embodies the
+ * The "gene" of the Core.Classifier system. It has a name, an active/inactive boolean, and behavior which embodies the
  * rule/action system as described in Holland's paper.
  */
 class Characteristic(

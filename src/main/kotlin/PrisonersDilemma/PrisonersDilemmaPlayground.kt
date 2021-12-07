@@ -1,4 +1,9 @@
+package PrisonersDilemma
+
+import Core.CoroutineHandler
+import Core.defaultGenePoolSize
 import kotlinx.coroutines.*
+import Core.prisonersDilemmaRoundRange
 import kotlin.math.pow
 
 enum class PrisonersDilemmaPlaygroundPhase {
@@ -16,6 +21,10 @@ enum class PoolEvolutionMode {
 /**
  * This is the simulation which brings the game and the players together and runs the experiment.
  * It holds the data in a way that Compose can read while it is running.
+ *
+ * TODO: The next big task is to abstract this class out. runExperiment() is probably a bit of a run-on
+ *  function, but that's okay in this case because of the demo-nature of it. I still need to make an
+ *  abstract Playground.kt class.
  */
 class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
     var metadata =  PrisonersDilemmaPlaygroundMetadata()

@@ -1,3 +1,11 @@
+package PrisonersDilemma
+
+import Core.DecisionTree
+import Core.punishmentPayoff
+import Core.rewardPayoff
+import Core.suckersPayoff
+import Core.temptationPayoff
+
 enum class PrisonersDilemmaPlayerLabel {
     PLAYER_A,
     PLAYER_B

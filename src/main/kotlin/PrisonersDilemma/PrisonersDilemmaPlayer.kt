@@ -1,5 +1,14 @@
+package PrisonersDilemma
+
+import Core.Characteristic
+import Core.Classifier
+import Core.DecisionTree
+import Core.decisionTreeDepth
+import Core.rewardPayoff
+import Core.temptationPayoff
+
 /**
- * THe Characteristics for a PrisonersDilemmaPlayer each represent a possible combination of moves
+ * THe Characteristics for a PrisonersDilemma.PrisonersDilemmaPlayer each represent a possible combination of moves
  * during play, and an active or inactive gene at that point represents COOPERATION or DEFECTION. In this
  * case it is simplest to name the genes after the Index that it would have if this were an array of 1s and 0s.
  */
@@ -71,7 +80,7 @@ val prisonersDilemmaBots = mapOf(
 )
 
 /**
- * PrisonersDilemmaPlayer is a Classifier with one goal: Get the lowest score possible while playing Prisoner's
+ * PrisonersDilemma.PrisonersDilemmaPlayer is a Core.Classifier with one goal: Get the lowest score possible while playing Prisoner's
  * Dilemma. Most combinations of Characteristics will result in poor Classifiers, but what makes the Genetic Algorithm
  * so interesting is that it will hone in on relatively optimal strategies in less generations than one would
  * expect.
@@ -94,7 +103,7 @@ class PrisonersDilemmaPlayer(
     }
 
     /**
-     * Grabs a slice of the previous rounds played in the game based on the depth of the DecisionTree
+     * Grabs a slice of the previous rounds played in the game based on the depth of the Core.DecisionTree
      * used for the players.
      */
     private fun turnMemory(game: PrisonersDilemmaGame): List<PrisonersDilemmaRoundResult> {
@@ -140,7 +149,7 @@ class PrisonersDilemmaPlayer(
 
     /**
      * Uses a map of all possible decisions within the given window and returns COOPERATE or DEFECT depending
-     * on whether the indicated sequence of events is mapped to an active Characteristic.
+     * on whether the indicated sequence of events is mapped to an active Core.Characteristic.
      */
     fun chooseMove(
         game: PrisonersDilemmaGame,

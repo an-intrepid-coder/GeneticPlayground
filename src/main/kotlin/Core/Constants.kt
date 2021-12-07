@@ -1,3 +1,5 @@
+package Core
+
 import androidx.compose.ui.graphics.Color
 
 // The number of rounds per game of Iterated Prisoner's Dilemma is chosen from a random range:

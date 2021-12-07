@@ -1,3 +1,8 @@
+package PrisonersDilemma
+
+import Core.Classifier
+import Core.ClassifierPool
+
 /**
  * A "gene pool" of Prisoner's Dilemma Players.
  */

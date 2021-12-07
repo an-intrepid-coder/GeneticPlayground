@@ -1,7 +1,13 @@
+package Core
+
+import PrisonersDilemma.PrisonersDilemmaRoundResult
+
 /**
  * This is a tree which maps out all the possible combinations of moves in a game of Prisoner's Dilemma
  * and maps each one to an index. It is a pretty generic tree, and I intend to make this a more abstract data structure
  * down the road. For now, it is just for the purpose of mapping out the game of Prisoner's Dilemma.
+ *
+ * TODO: Make this generic. Currently it is for Prisoner's Dilemma only!
  */
 class DecisionTree(
     val depth: Int = decisionTreeDepth,

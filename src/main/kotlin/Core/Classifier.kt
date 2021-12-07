@@ -1,5 +1,9 @@
+package Core
+
+import PrisonersDilemma.PrisonersDilemmaPlayer
+
 /**
- * The "chromosome" of the Classifier system. It consists of a list of Characteristics and the means to "reproduce".
+ * The "chromosome" of the Core.Classifier system. It consists of a list of Characteristics and the means to "reproduce".
  * It can be sub-classed for more specific purposes.
  *
  * Currently, it is assuming that whatever it is classifying is going to use a relatively simple system of measuring
@@ -55,7 +59,7 @@ abstract class Classifier(
 
     /**
      * Returns a binary string of all the possible characteristics (which should be in a consistent order among
-     * all instances of the Classifier -- e.g. alphabetical) represented as 0s for Inactive and 1st for Active, as
+     * all instances of the Core.Classifier -- e.g. alphabetical) represented as 0s for Inactive and 1st for Active, as
      * suggested in John Holland's paper.
      */
     fun asBinaryString(): String {
