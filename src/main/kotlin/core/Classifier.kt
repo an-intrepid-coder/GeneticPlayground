@@ -1,6 +1,6 @@
-package Core
+package core
 
-import PrisonersDilemma.PrisonersDilemmaPlayer
+import prisonersDilemma.PrisonersDilemmaPlayer
 
 /**
  * The "chromosome" of the Core.Classifier system. It consists of a list of Characteristics and the means to "reproduce".

@@ -1,10 +1,4 @@
-package PrisonersDilemma
-
-import Core.DecisionTree
-import Core.punishmentPayoff
-import Core.rewardPayoff
-import Core.suckersPayoff
-import Core.temptationPayoff
+package prisonersDilemma
 
 enum class PrisonersDilemmaPlayerLabel {
     PLAYER_A,
@@ -43,7 +37,7 @@ class PrisonersDilemmaGame(
     val playerA: PrisonersDilemmaPlayer,
     val playerB: PrisonersDilemmaPlayer,
 ) {
-    private val decisionTree = DecisionTree()
+    private val decisionTree = PrisonersDilemmaDecisionTree()
     var roundsPassed = 0
     var previousRounds = mutableListOf<PrisonersDilemmaRoundResult>()
 

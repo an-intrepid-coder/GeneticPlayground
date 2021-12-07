@@ -1,6 +1,4 @@
-package Core
-
-import androidx.compose.ui.graphics.Color
+package prisonersDilemma
 
 // The number of rounds per game of Iterated Prisoner's Dilemma is chosen from a random range:
 val prisonersDilemmaRoundRange = 100..200
@@ -19,12 +17,6 @@ const val defaultGenePoolSize = 3000
 const val decisionTreeDepth = 3
 
 /*
-    Holland's paper suggests a mutation frequency of 1/10,000, which will be the default. This is pretty
-    arbitrary though.
- */
-const val defaultMutationFrequency = 10000
-
-/*
     Terminology for reward payoffs taken from Wikipedia. For simplicity's sake I've decided to use positive values
     instead of negative ones.
  */
@@ -40,9 +32,3 @@ val possibleOutcomes = listOf(
     Pair(temptationPayoff, suckersPayoff),
     Pair(punishmentPayoff, punishmentPayoff)
 )
-
-// Some simple placeholder colors for the GUI.
-val White = Color(255, 255, 255)
-val Black = Color(0, 0, 0)
-val BrightGreen = Color(0, 255, 0)
-val BrightRed = Color(255, 0, 0)

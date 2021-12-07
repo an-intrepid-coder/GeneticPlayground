@@ -1,4 +1,4 @@
-package Core
+package core
 
 import kotlinx.coroutines.*
 import kotlin.system.exitProcess
@@ -31,10 +31,12 @@ class CoroutineHandler {
      * This attempts to cancel all coroutines before exiting the application. It works, most of the time.
      * It could be better and I will improve it.
      */
-    suspend fun cancelAndExit() {
+    suspend fun cancel(exit: Boolean = false) {
         cancelled = true
         delay(1000)
         activeJobs.forEach { it.cancelAndJoin() }
-        exitProcess(0)
+        activeJobs = mutableListOf()
+        if (exit)
+            exitProcess(0)
     }
 }

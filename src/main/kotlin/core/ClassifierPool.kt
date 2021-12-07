@@ -1,4 +1,4 @@
-package Core
+package core
 
 /**
  * A blueprint for a "pool" of Classifiers.

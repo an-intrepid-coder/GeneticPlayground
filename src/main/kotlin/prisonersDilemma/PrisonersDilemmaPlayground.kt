@@ -1,33 +1,53 @@
-package PrisonersDilemma
+package prisonersDilemma
 
-import Core.CoroutineHandler
-import Core.defaultGenePoolSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import core.CoroutineHandler
+import core.Playground
 import kotlinx.coroutines.*
-import Core.prisonersDilemmaRoundRange
 import kotlin.math.pow
-
-enum class PrisonersDilemmaPlaygroundPhase {
-    SETUP,
-    EVOLVING,
-    FINISHED,
-}
-
-enum class PoolEvolutionMode {
-    GRADUAL,
-    RAPID,
-    STABLE
-}
 
 /**
  * This is the simulation which brings the game and the players together and runs the experiment.
  * It holds the data in a way that Compose can read while it is running.
- *
- * TODO: The next big task is to abstract this class out. runExperiment() is probably a bit of a run-on
- *  function, but that's okay in this case because of the demo-nature of it. I still need to make an
- *  abstract Playground.kt class.
  */
-class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
-    var metadata =  PrisonersDilemmaPlaygroundMetadata()
+class PrisonersDilemmaPlayground(
+    coroutineHandler: CoroutineHandler,
+) : Playground(coroutineHandler) {
+    var averageAge by mutableStateOf(0.0)
+    var averageScoreWithinPool by mutableStateOf(0.0)
+    var currentEldest by mutableStateOf("No Eldest Yet")
+    var currentEldestAge by mutableStateOf(0)
+    var averageScoreAgainstAlwaysDefects by mutableStateOf(0.0)
+    var averageScoreAgainstAlwaysCooperates by mutableStateOf(0.0)
+    var averageScoreAgainstTitForTat by mutableStateOf(0.0)
+    var averageScoreAgainstRandom by mutableStateOf(0.0)
+    var numSpecies by mutableStateOf(0)
+    var percentSolutionsExplored by mutableStateOf(0.0)
+    var numSolutionsExplored by mutableStateOf(0)
+
+    /**
+     * Resets the app.
+     */
+    override suspend fun reset() {
+        coroutineHandler.cancel()
+        averageAge = 0.0
+        averageScoreWithinPool = 0.0
+        currentEldest = "No Eldest Yet"
+        currentEldestAge = 0
+        averageScoreAgainstAlwaysDefects = 0.0
+        averageScoreAgainstAlwaysCooperates = 0.0
+        averageScoreAgainstTitForTat = 0.0
+        averageScoreAgainstRandom = 0.0
+        numSpecies = 0
+        percentSolutionsExplored = 0.0
+        numSolutionsExplored = 0
+        currentGeneration = -1
+        started = false
+        finished = false
+        coroutineHandler.cancelled = false
+    }
 
     /**
      * The experiment is pretty straightforward: The size of the gene pool never changes. The most fit reproduce
@@ -41,32 +61,17 @@ class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
      * When the experiment is in demoMode, it displays a lot of additional information in the front-end which
      * allows the user to observe how this works. This stuff takes a lot of extra cycles to calculate and display,
      * and it is possible to turn off demoMode in order to see how fast this can be when more optimized. When
-     * demoMode is off, most cycle-wasting actions are locked behind an if-statement.
+     * demoMode is off, most cycle-wasting actions are locked behind an if-statement. If it weren't for all the demo
+     * fluff and testing, this would be a pretty short function. It runs very fast when demoMode = false.
      */
-    suspend fun runExperiment(
-        numRoundsRange: IntRange = prisonersDilemmaRoundRange,
-        genePoolSize: Int = defaultGenePoolSize,
-        demoMode: Boolean = false,
-    ) {
+    override suspend fun run() {
+        val numRoundsRange = prisonersDilemmaRoundRange
+        val genePoolSize = defaultGenePoolSize
+        val demoMode = true
         val coroutineScope = coroutineHandler.coroutineScope
 
         // Set up a gene pool:
         val classifierPool = PrisonersDilemmaPlayerPool(genePoolSize)
-
-        /**
-         * Gives a rough indication of how fast the pool is evolving based on the average age.
-         * This is "demo fluff" and is only active when demoMode is enabled.
-         */
-        fun poolMode(): PoolEvolutionMode {
-            val stableCutoff = 10.0
-            val gradualCutoff = 0.005
-            return if (metadata.averageAge > stableCutoff)
-                PoolEvolutionMode.STABLE
-            else if (metadata.averageAge > gradualCutoff)
-                PoolEvolutionMode.GRADUAL
-            else
-                PoolEvolutionMode.RAPID
-        }
 
         // Ensure there are no active jobs:
         coroutineHandler.joinAndClearActiveJobs()
@@ -90,39 +95,32 @@ class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
                 .filter { it !in seenGenomes }
                 .forEach { seenGenomes.add(it) }
 
-            metadata.numSolutionsExplored = seenGenomes.size
+            numSolutionsExplored = seenGenomes.size
 
             val possibleSolutions = (2.0).pow(classifierPool.pool.first().characteristics.size)
 
-            metadata.percentSolutionsExplored = seenGenomes
+            percentSolutionsExplored = seenGenomes
                 .size
                 .toDouble()
                 .div(possibleSolutions)
                 .times(100.0)
         }
 
-        // Set up the metadata:
-        metadata.currentPlaygroundPhase = PrisonersDilemmaPlaygroundPhase.EVOLVING
-        metadata.generationSize = genePoolSize
+        started = true
 
         /**
          * For this example, the simulation is considered "over" when the pool reaches a stable equilibrium
-         * that involves having a 1.0 average score against itself, against alwaysCooperates, and against titForTat,
-         * while doing much better than a random pool against alwaysDefects and purely random bots. At this point
-         * the pool also stops evolving, because it has figured out a little niche where everybody "wins" every
-         * generation (which also happens to contain optimal strategies against titForTat, for example).
-         *
-         * There are other criteria which could be used to end the simulation instead. The fact that this demonstration
-         * is using the average score within the pool while paired off each generation leads to different
-         * behavior than if, say, average score against a titForTat bot were used each generation.
+         * that involves having a 1.0 average score against itself, which happens to coincide with a 1.0
+         * average against alwaysCooperates as well as against titForTat. That is the "goal" of the
+         * experiment: it reaches a stable equilibrium that is also competitive.
          */
         fun simulationOver(): Boolean {
-            return metadata.poolEvolutionMode == PoolEvolutionMode.STABLE || metadata.averageScoreWithinPool == 1.0
+            return averageScoreWithinPool == 1.0
         }
 
         var generationNumber = 0
         while (!simulationOver()) {
-            metadata.currentGeneration = generationNumber++
+            currentGeneration = generationNumber++
 
             // Pair off members of generation and have them play each other.
             classifierPool.pool
@@ -145,25 +143,22 @@ class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
             coroutineHandler.joinAndClearActiveJobs()
 
             // Collect the average scores:
-            metadata.averageScoreWithinPool = classifierPool.averageScore()
+            averageScoreWithinPool = classifierPool.averageScore()
 
             // Wait for all coroutines to complete:
             coroutineHandler.joinAndClearActiveJobs()
 
             if (demoMode) {
                 // Collect the average age:
-                metadata.averageAge = classifierPool.pool.sumOf { it.age }.toDouble() / genePoolSize
+                averageAge = classifierPool.pool.sumOf { it.age }.toDouble() / genePoolSize
 
                 // Collect the eldest:
                 val eldest = classifierPool.pool.maxByOrNull { it.age }!!
-                metadata.currentEldest = eldest.asBinaryString()
-                metadata.currentEldestAge = eldest.age
-
-                // Pool evolution mode (how fast is it evolving?):
-                metadata.poolEvolutionMode = poolMode()
+                currentEldest = eldest.asBinaryString()
+                currentEldestAge = eldest.age
 
                 // Collect # of species:
-                metadata.numSpecies = classifierPool.numDistinctClassifiers()
+                numSpecies = classifierPool.numDistinctClassifiers()
             }
 
             // Produce a new generation using the average within the pool as the selective pressure:
@@ -188,9 +183,9 @@ class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
 
                     when (entry.key) {
                         // Add average score against the type of bot:
-                        "alwaysDefects" -> metadata.averageScoreAgainstAlwaysDefects = classifierPool.averageScore()
-                        "alwaysCooperates" -> metadata.averageScoreAgainstAlwaysCooperates = classifierPool.averageScore()
-                        "titForTat" -> metadata.averageScoreAgainstTitForTat = classifierPool.averageScore()
+                        "alwaysDefects" -> averageScoreAgainstAlwaysDefects = classifierPool.averageScore()
+                        "alwaysCooperates" -> averageScoreAgainstAlwaysCooperates = classifierPool.averageScore()
+                        "titForTat" -> averageScoreAgainstTitForTat = classifierPool.averageScore()
                     }
                 }
 
@@ -210,7 +205,7 @@ class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
                 coroutineHandler.joinAndClearActiveJobs()
 
                 // Add average score against pure random bots:
-                metadata.averageScoreAgainstRandom = classifierPool.averageScore()
+                averageScoreAgainstRandom = classifierPool.averageScore()
 
                 // Observe current genomes:
                 observeGenomes()
@@ -226,6 +221,6 @@ class PrisonersDilemmaPlayground(val coroutineHandler: CoroutineHandler) {
             }
         }
 
-        metadata.currentPlaygroundPhase = PrisonersDilemmaPlaygroundPhase.FINISHED
+        finished = true
     }
 }

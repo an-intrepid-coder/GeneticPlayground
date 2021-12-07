@@ -1,11 +1,7 @@
-package PrisonersDilemma
+package prisonersDilemma
 
-import Core.Characteristic
-import Core.Classifier
-import Core.DecisionTree
-import Core.decisionTreeDepth
-import Core.rewardPayoff
-import Core.temptationPayoff
+import core.Characteristic
+import core.Classifier
 
 /**
  * THe Characteristics for a PrisonersDilemma.PrisonersDilemmaPlayer each represent a possible combination of moves
@@ -13,7 +9,7 @@ import Core.temptationPayoff
  * case it is simplest to name the genes after the Index that it would have if this were an array of 1s and 0s.
  */
 fun randomPrisonersDilemmaCharacteristics(): List<Characteristic> {
-    val decisionTree = DecisionTree()
+    val decisionTree = PrisonersDilemmaDecisionTree()
 
     return mutableListOf<Characteristic>().let { characteristics ->
         repeat (decisionTree.numNodes) { index ->
@@ -153,7 +149,7 @@ class PrisonersDilemmaPlayer(
      */
     fun chooseMove(
         game: PrisonersDilemmaGame,
-        decisionTree: DecisionTree,
+        decisionTree: PrisonersDilemmaDecisionTree,
     ): DilemmaChoice {
         if (botBehavior != null)
             return botBehavior.invoke(this, game)

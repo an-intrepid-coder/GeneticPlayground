@@ -1,4 +1,4 @@
-package Core
+package core
 
 /**
  * The "gene" of the Core.Classifier system. It has a name, an active/inactive boolean, and behavior which embodies the
