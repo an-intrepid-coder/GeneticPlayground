@@ -23,13 +23,6 @@ abstract class ClassifierPool(
     abstract fun nextGeneration(): List<Classifier>
 
     /**
-     * Returns the average score of a generation.
-     */
-    fun averageScore(): Double {
-        return pool.sumOf { it.score } / poolSize
-    }
-
-    /**
      * Returns the number of unique "genomes" in the pool. Usually there is some overlap,
      * but not much.
      */
