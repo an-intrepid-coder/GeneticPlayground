@@ -20,10 +20,9 @@ data class PrisonersDilemmaRoundResult(
 
 data class PrisonersDilemmaGameResult(
     val roundResults: List<PrisonersDilemmaRoundResult>,
-    val playerAAverageScore: Double,
-    val playerATotalScore: Double,
-    val playerBAverageScore: Double,
-    val playerBTotalScore: Double,
+    val playerTotalScore: Int,
+    val botTotalScore: Int,
+    val win: Boolean,
 )
 
 /**
@@ -33,9 +32,10 @@ data class PrisonersDilemmaGameResult(
  */
 class PrisonersDilemmaGame(
     val roundsToPlay: Int,
-    private val interactiveMode: Boolean = false,
     val playerA: PrisonersDilemmaPlayer,
     val playerB: PrisonersDilemmaPlayer,
+    private val interactiveMode: Boolean = false,
+    private val countsTowardsWins: Boolean = true,
 ) {
     private val decisionTree = PrisonersDilemmaDecisionTree()
     var roundsPassed = 0
@@ -46,8 +46,6 @@ class PrisonersDilemmaGame(
         playerB.playerLabel = PrisonersDilemmaPlayerLabel.PLAYER_B
         playerA.opponent = playerB
         playerB.opponent = playerA
-        playerA.score = 0.0
-        playerB.score = 0.0
     }
 
     /**
@@ -116,31 +114,39 @@ class PrisonersDilemmaGame(
     }
 
     /**
-     * Plays games until roundsToPlay has been reached, and returns the final result.
+     * Plays games until roundsToPlay has been reached, and returns the final result. For the purposes of this
+     * program, a "win" in Prisoner's Dilemma is when you get less than or equal to the score of the opponent.
+     * This is to reward the potential for emergent cooperation. However, I have also chosen to give extra
+     * resources (which will speed evolution) for getting strictly less than an opponent as opposed to a tie
+     * (so that players are inclined to try and beat titForTat rather than just be competitive with it).
      */
     fun play(): PrisonersDilemmaGameResult {
+        var playerAScore = 0
+        var playerBScore = 0
+
         while (roundsPassed < roundsToPlay) {
             playRound().let { roundResult ->
-                playerA.score += roundResult.playerAScore
-                playerB.score += roundResult.playerBScore
+                playerAScore += roundResult.playerAScore
+                playerBScore += roundResult.playerBScore
                 roundsPassed++
                 previousRounds.add(roundResult)
             }
         }
 
-        val averageA = playerA.score / roundsToPlay
-        val averageB = playerB.score / roundsToPlay
-
         val gameResult = PrisonersDilemmaGameResult(
             roundResults = previousRounds,
-            playerAAverageScore = averageA,
-            playerATotalScore = playerA.score,
-            playerBAverageScore = averageB,
-            playerBTotalScore = playerB.score
+            playerTotalScore = playerAScore,
+            botTotalScore = playerBScore,
+            /*
+                In the event of a tie, both win. This supports the cooperative nature of Prisoner's Dilemma,
+                and may not translate to other experiments or models. In order to reward more competitive
+                Classifiers, they will get 1 point for ties and 2 points for outright wins.
+             */
+            win = playerAScore <= playerBScore,
         )
 
-        playerA.score /= roundsToPlay
-        playerB.score /= roundsToPlay
+        if (countsTowardsWins && gameResult.win)
+            playerA.wins += if (playerAScore < playerBScore) 2 else 1
 
         return gameResult
     }
