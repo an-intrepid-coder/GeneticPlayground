@@ -12,15 +12,15 @@ fun PrisonersDilemmaPlaygroundData(
     started: String,
     finished: String,
     generation: String,
-    averageAge: String,
-    numSpecies: String,
-    eldest: String,
-    eldestAge: String,
     averageScoreWithinPool: String,
     averageScoreAgainstAlwaysDefects: String,
+    winPercentAgainstAlwaysDefects: String,
     averageScoreAgainstAlwaysCooperates: String,
+    winPercentAgainstAlwaysCooperates: String,
     averageScoreAgainstTitForTat: String,
+    winPercentAgainstTitForTat: String,
     averageScoreAgainstRandom: String,
+    winPercentAgainstRandom: String,
     percentSolutionsExplored: String,
     numSolutionsExplored: String,
 ) {
@@ -30,16 +30,18 @@ fun PrisonersDilemmaPlaygroundData(
     LabeledText("% Solutions Explored", percentSolutionsExplored)
     WavyBorder()
     LabeledText("Current Generation", generation)
-    LabeledText("Average Age", averageAge)
-    LabeledText("# of Distinct Genomes in Pool", numSpecies)
-    WavyBorder()
-    LabeledText("Eldest", eldest)
-    LabeledText("Eldest Age", eldestAge)
-    WavyBorder()
     LabeledText("Average Score Within Pool", averageScoreWithinPool)
+    WavyBorder()
     LabeledText("Average Score of Pool vs. alwaysDefects", averageScoreAgainstAlwaysDefects)
+    LabeledText("Win % vs. alwaysDefects", winPercentAgainstAlwaysDefects)
+    WavyBorder()
     LabeledText("Average Score of Pool vs. alwaysCooperates", averageScoreAgainstAlwaysCooperates)
+    LabeledText("Win % vs. alwaysCooperates", winPercentAgainstAlwaysCooperates)
+    WavyBorder()
     LabeledText("Average Score of Pool vs. titForTat", averageScoreAgainstTitForTat)
+    LabeledText("Win % vs. titForTat", winPercentAgainstTitForTat)
+    WavyBorder()
     LabeledText("Average Score of Pool vs. random", averageScoreAgainstRandom)
+    LabeledText("Win % vs. random", winPercentAgainstRandom)
     WavyBorder()
 }
