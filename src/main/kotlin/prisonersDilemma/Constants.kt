@@ -6,6 +6,17 @@ val prisonersDilemmaRoundRange = 100..200
 // The static size of the "gene pool" from which Classifiers are drawn from and reproduce back in to:
 const val defaultGenePoolSize = 3000
 
+// The threshold at which a PrisonersDilemmaPlayer will reproduce:
+const val prisonersDilemmaPlayerReproductionThreshold = 30
+
+/*
+    Only a few dozen generations are needed to demonstrate what is happening, but if curious then one could let it run
+    indefinitely. There are some data structures which might not be optimized for that, although if so then that is
+    an oversight on my part and will be fixed eventually -- it should be safe to run it for a very long time. This
+    default limit is just a precaution.
+ */
+const val defaultGenerationLimit = 100000
+
 /*
     The depth of the decision tree represents how many turns "back" each player will attempt to account for.
     The default of 3 is what was mentioned in John Holland's paper, but one could use more depth if they wanted.
