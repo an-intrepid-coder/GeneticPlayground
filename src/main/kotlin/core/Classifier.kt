@@ -5,18 +5,10 @@ import prisonersDilemma.PrisonersDilemmaPlayer
 /**
  * The "chromosome" of the Core.Classifier system. It consists of a list of Characteristics and the means to "reproduce".
  * It can be sub-classed for more specific purposes.
- *
- * Currently, it is assuming that whatever it is classifying is going to use a relatively simple system of measuring
- * the average score over a number of trials, as is the case in Iterated Prisoner's Dilemma, and using the system
- * of fitness selection and reproduction described in John Holland's paper. Right now this is unlikely to change,
- * but as the system gets more advanced I may depart from this.
  */
 abstract class Classifier(
     val characteristics: List<Characteristic>,
-    var score: Double = 0.0,
 ) {
-    var age = 0
-
     /**
      * Returns a copy of the classifier that is one generation older.
      */
@@ -69,7 +61,7 @@ abstract class Classifier(
     }
 
     /**
-     * Returns whether or not the named "gene" is active.
+     * Returns whether the named "gene" is active.
      */
     fun hasActiveGene(geneName: String): Boolean {
         return characteristics.any { it.name == geneName && it.active }
