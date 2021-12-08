@@ -87,7 +87,8 @@ class PrisonersDilemmaPlayer(
     var opponent: PrisonersDilemmaPlayer? = null,
     val botBehavior: ((PrisonersDilemmaPlayer, PrisonersDilemmaGame) -> DilemmaChoice)? = null,
 ) : Classifier(characteristics) {
-
+    var age = 0
+    var wins = 0
 
     /**
      * Returns a copy of the classifier that is one generation older.
