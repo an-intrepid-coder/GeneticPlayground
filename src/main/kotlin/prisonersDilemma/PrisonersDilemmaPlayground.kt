@@ -15,32 +15,38 @@ import kotlin.math.pow
 class PrisonersDilemmaPlayground(
     coroutineHandler: CoroutineHandler,
 ) : Playground(coroutineHandler) {
-    var averageAge by mutableStateOf(0.0)
-    var averageScoreWithinPool by mutableStateOf(0.0)
-    var currentEldest by mutableStateOf("No Eldest Yet")
-    var currentEldestAge by mutableStateOf(0)
-    var averageScoreAgainstAlwaysDefects by mutableStateOf(0.0)
-    var averageScoreAgainstAlwaysCooperates by mutableStateOf(0.0)
-    var averageScoreAgainstTitForTat by mutableStateOf(0.0)
-    var averageScoreAgainstRandom by mutableStateOf(0.0)
-    var numSpecies by mutableStateOf(0)
+    // These are "demoMode fluff" data points which help to illustrate what is happening:
     var percentSolutionsExplored by mutableStateOf(0.0)
     var numSolutionsExplored by mutableStateOf(0)
+   /*
+        Although the book "Signals and Boundaries" suggests using a resource-acquisition-based system instead
+        of averages when it comes to testing for fitness, these metrics are still useful for demoMode (if somewhat
+        non-performant to collect).
+    */
+    var averageScoreWithinPool by mutableStateOf(0.0)
+    var averageScoreAgainstAlwaysDefects by mutableStateOf(0.0)
+    var winPercentAgainstAlwaysDefects by mutableStateOf(0.0)
+    var averageScoreAgainstAlwaysCooperates by mutableStateOf(0.0)
+    var winPercentAgainstAlwaysCooperates by mutableStateOf(0.0)
+    var averageScoreAgainstTitForTat by mutableStateOf(0.0)
+    var winPercentAgainstTitForTat by mutableStateOf(0.0)
+    var averageScoreAgainstRandom by mutableStateOf(0.0)
+    var winPercentAgainstRandom by mutableStateOf(0.0)
 
     /**
      * Resets the app.
      */
     override suspend fun reset() {
         coroutineHandler.cancel()
-        averageAge = 0.0
+        winPercentAgainstAlwaysDefects = 0.0
+        winPercentAgainstAlwaysCooperates = 0.0
+        winPercentAgainstTitForTat = 0.0
+        winPercentAgainstRandom = 0.0
         averageScoreWithinPool = 0.0
-        currentEldest = "No Eldest Yet"
-        currentEldestAge = 0
         averageScoreAgainstAlwaysDefects = 0.0
         averageScoreAgainstAlwaysCooperates = 0.0
         averageScoreAgainstTitForTat = 0.0
         averageScoreAgainstRandom = 0.0
-        numSpecies = 0
         percentSolutionsExplored = 0.0
         numSolutionsExplored = 0
         currentGeneration = -1
@@ -118,94 +124,106 @@ class PrisonersDilemmaPlayground(
             return averageScoreWithinPool == 1.0
         }
 
-        var generationNumber = 0
-        while (!simulationOver()) {
-            currentGeneration = generationNumber++
+        /**
+         * Runs the whole ClassifierPool against a given kind of bot and returns the average score.
+         * Can be instructed to countTowardsWins for individual Classifiers or not. Can also be instructed to
+         * compete within the generation only.
+         *
+         * botType is a string. The acceptable kinds of bots can be found in PrisonersDilemmaPlayer.kt. "random"
+         * will generate wholly random players. "withinPool" will pick opponents randomly from within the
+         * ClassifierPool.
+         */
+        suspend fun playGames(
+            botType: String,
+            countsTowardsWins: Boolean,
+        ): Pair<Double, Double> { // TODO: Maybe a class instead of this tuple?
 
-            // Pair off members of generation and have them play each other.
-            classifierPool.pool
-                .chunked(2)
-                .forEach { pair ->
-                    if (pair.size != 2)
-                        error("Players not paired off correctly.")
-
-                   coroutineHandler.addJob(coroutineScope.launch {
-                        PrisonersDilemmaGame(
-                            roundsToPlay = numRoundsRange.random(),
-                            interactiveMode = false,
-                            playerA = pair.first() as PrisonersDilemmaPlayer,
-                            playerB = pair.last() as PrisonersDilemmaPlayer,
-                        ).play()
-                    })
-                }
-
-            // Wait for all coroutines to complete:
-            coroutineHandler.joinAndClearActiveJobs()
-
-            // Collect the average scores:
-            averageScoreWithinPool = classifierPool.averageScore()
-
-            // Wait for all coroutines to complete:
-            coroutineHandler.joinAndClearActiveJobs()
-
-            if (demoMode) {
-                // Collect the average age:
-                averageAge = classifierPool.pool.sumOf { it.age }.toDouble() / genePoolSize
-
-                // Collect the eldest:
-                val eldest = classifierPool.pool.maxByOrNull { it.age }!!
-                currentEldest = eldest.asBinaryString()
-                currentEldestAge = eldest.age
-
-                // Collect # of species:
-                numSpecies = classifierPool.numDistinctClassifiers()
+            // Play the games, tracking the scores:
+            var scoreSum = 0.0
+            var numWins = 0.0
+            classifierPool.pool.forEach { player ->
+                coroutineHandler.addJob(coroutineScope.launch {
+                    PrisonersDilemmaGame(
+                        roundsToPlay = numRoundsRange.random(),
+                        playerA = player as PrisonersDilemmaPlayer,
+                        playerB = when (botType) {
+                            "withinPool" -> classifierPool.pool.random()
+                            "random" -> PrisonersDilemmaPlayer()
+                            "alwaysDefects" -> prisonersDilemmaBots["alwaysDefects"]
+                            "alwaysCooperates" -> prisonersDilemmaBots["alwaysCooperates"]
+                            "titForTat" -> prisonersDilemmaBots["titForTat"]
+                            else -> error("Invalid botType: $botType")
+                        } as PrisonersDilemmaPlayer,
+                        interactiveMode = false,
+                        countsTowardsWins = countsTowardsWins
+                    ).play().let { gameResult ->
+                        scoreSum += gameResult.playerTotalScore
+                        if (gameResult.win)
+                            numWins += 1 //todo: verify ++ is the same for Doubles?
+                    }
+                })
             }
 
-            // Produce a new generation using the average within the pool as the selective pressure:
-            val nextGeneration = classifierPool.nextGeneration()
+            // Wait for all coroutines to complete:
+            coroutineHandler.joinAndClearActiveJobs()
 
+            // Collect the result in the form of Pair<averageScore, winPercent>:
+            return Pair(scoreSum / genePoolSize, numWins / genePoolSize * 100.0)
+        }
+
+        // Run the experiment for a number of generations:
+        for (generationNumber in 0 until defaultGenerationLimit) {
+            currentGeneration = generationNumber
+
+            // Members of generation play each other for the wins which count:
+            playGames(
+                botType = "withinPool",
+                countsTowardsWins = true
+            ).let { averageScoreWithinPool = it.first }
+
+            // Wait for all coroutines to complete:
+            coroutineHandler.joinAndClearActiveJobs() // <-- May be able to delete this line. todo
+
+            // Produce a new generation using the average within the pool as the selective pressure:
+            val nextGeneration = classifierPool.nextGeneration() // todo: this
+
+            /*
+                demoMode is where the expensive fluff lives. These metrics are useful but they slow things down.
+                Turning off demoMode can demonstrate how fast genetic algorithms can be.
+             */
             if (demoMode) {
                 // Collect test data for the generation:
-                prisonersDilemmaBots.forEach { entry ->
-                    classifierPool.pool.forEach { player ->
-                        coroutineHandler.addJob(coroutineScope.launch {
-                            PrisonersDilemmaGame(
-                                roundsToPlay = numRoundsRange.random(),
-                                interactiveMode = false,
-                                playerA = player as PrisonersDilemmaPlayer,
-                                playerB = entry.value,
-                            ).play()
-                        })
-                    }
-
-                    // Wait for all coroutines to complete:
-                    coroutineHandler.joinAndClearActiveJobs()
-
-                    when (entry.key) {
-                        // Add average score against the type of bot:
-                        "alwaysDefects" -> averageScoreAgainstAlwaysDefects = classifierPool.averageScore()
-                        "alwaysCooperates" -> averageScoreAgainstAlwaysCooperates = classifierPool.averageScore()
-                        "titForTat" -> averageScoreAgainstTitForTat = classifierPool.averageScore()
+                prisonersDilemmaBots.keys.forEach { botType ->
+                    playGames(
+                        botType = botType,
+                        countsTowardsWins = false
+                    ).let { pair ->
+                        when (botType) {
+                            // Add average score against the type of bot:
+                            "alwaysDefects" -> {
+                                averageScoreAgainstAlwaysDefects = pair.first
+                                winPercentAgainstAlwaysDefects = pair.second
+                            }
+                            "alwaysCooperates" -> {
+                                averageScoreAgainstAlwaysCooperates = pair.first
+                                winPercentAgainstAlwaysCooperates = pair.second
+                            }
+                            "titForTat" -> {
+                                averageScoreAgainstTitForTat = pair.first
+                                winPercentAgainstTitForTat = pair.second
+                            }
+                        }
                     }
                 }
 
                 // Test against pure random bots:
-                classifierPool.pool.forEach { player ->
-                    coroutineHandler.addJob(coroutineScope.launch {
-                        PrisonersDilemmaGame(
-                            roundsToPlay = numRoundsRange.random(),
-                            interactiveMode = false,
-                            playerA = player as PrisonersDilemmaPlayer,
-                            playerB = PrisonersDilemmaPlayer(),
-                        ).play()
-                    })
+                playGames(
+                    botType = "random",
+                    countsTowardsWins = false
+                ).let { pair ->
+                    averageScoreAgainstRandom = pair.first
+                    winPercentAgainstRandom = pair.second
                 }
-
-                // Wait for all coroutines to complete:
-                coroutineHandler.joinAndClearActiveJobs()
-
-                // Add average score against pure random bots:
-                averageScoreAgainstRandom = classifierPool.averageScore()
 
                 // Observe current genomes:
                 observeGenomes()
