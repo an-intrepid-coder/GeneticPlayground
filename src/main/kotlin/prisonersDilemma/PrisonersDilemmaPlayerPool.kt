@@ -23,34 +23,57 @@ class PrisonersDilemmaPlayerPool(
     }
 
     /**
-     * Returns the next generation of Prisoner's Dilemma Players, using the lowest average score
-     * as the criteria for selection.
+     * Returns the next generation of Prisoner's Dilemma Players, using number of wins as the
+     * criteria for selection.
      */
     override fun nextGeneration(): List<Classifier> {
-        return mutableListOf<PrisonersDilemmaPlayer>().let { newGeneration ->
-            // Above Average players reproduce:
-            val averageScore = averageScore()
-            pool
-                .filter { it.score < averageScore }
-                .chunked(2)
-                .forEach { pair ->
-                    when (pair.size) {
-                        1 -> newGeneration.add(pair.first().emitSurvivor() as PrisonersDilemmaPlayer)
-                        2 -> pair.first().combine(pair.last()).forEach { offspring ->
-                            newGeneration.add(offspring as PrisonersDilemmaPlayer)
-                        }
-                    }
-                }
+        val nextGeneration = mutableListOf<PrisonersDilemmaPlayer>()
 
-            // Fill in the remainder from the most fit of the previous generation:
-            val sortedByScore = pool.sortedBy { it.score }
-            for (survivor in sortedByScore) {
-                if (newGeneration.size >= pool.size) break
-                newGeneration.add(survivor.emitSurvivor() as PrisonersDilemmaPlayer)
+        // Collect a list of those fit enough to reproduce:
+        val mostFit = pool.asSequence()
+            .map { it as PrisonersDilemmaPlayer }
+            .filter { it.wins > prisonersDilemmaPlayerReproductionThreshold }
+            .toList()
+            .shuffled()
+
+        // The least fit, sorted in descending order by # of wins:
+        val sortedRemainder = pool.asSequence()
+            .map { it as PrisonersDilemmaPlayer }
+            .filter { it.wins <= prisonersDilemmaPlayerReproductionThreshold }
+            .sortedByDescending { it.wins }
+            .toList()
+
+        // Pair off mostFit and add their "children" to nextGeneration:
+        mostFit
+            .chunked(2)
+            .forEach { pair ->
+                /*
+                    In the case of an odd-numbered mostFit with a single lone leftover, I have
+                    chosen to have it clone itself.
+                 */
+                if (pair.size < 2)
+                    nextGeneration.add(pair.first().emitSurvivor() as PrisonersDilemmaPlayer)
+                else
+                    pair.first()
+                        .combine(pair.last())
+                        .forEach { nextGeneration.add(it as PrisonersDilemmaPlayer) }
             }
 
-            newGeneration
+        // Fill in the remainder using the most fit from the previous generation:
+        var mostFitIndex = mostFit.indices.first
+        var sortedRemainderIndex = sortedRemainder.indices.first
+        while (nextGeneration.size < poolSize) {
+            nextGeneration.add(
+                if (mostFitIndex <= mostFit.indices.last)
+                    mostFit[mostFitIndex++]
+                else if (sortedRemainderIndex <= sortedRemainder.indices.last)
+                    sortedRemainder[sortedRemainderIndex++]
+                else
+                    error("This should never happen")
+            )
         }
+
+        return nextGeneration
     }
 
     init {
