@@ -8,8 +8,9 @@ enum class InterfaceMode {
 }
 
 /*
-    Holland's paper suggests a mutation frequency of 1/10,000, which will be the default. This is pretty
-    arbitrary though.
+    Holland's paper *Genetic Algorithms* suggests a mutation frequency of 1/10,000, which will be the default. This is
+    pretty arbitrary though. In *Signals and Boundaries* a more vague number is given. It remains to do some
+    testing to see how much different mutation frequencies can affect the results.
  */
 const val defaultMutationFrequency = 10000
 
