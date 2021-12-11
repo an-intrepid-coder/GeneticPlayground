@@ -55,18 +55,18 @@ class PrisonersDilemmaDecisionTree(
     )
 
     /**
-     * returnIndexOfMoveSet takes a list of rounds (by default 3) and traverses the tree by matching the moves
-     * against the projections. When it reaches the bottom level of the tree, it returns the unique bitStringIndex
-     * associated with that possible chain of events.
+     * returnIndexOfMoveSet takes a list of past round results, and traverses the tree by matching the moves
+     * against the projections. When it reaches the bottom level of the tree, it returns the index associated with that
+     * possible chain of events.
      */
-    fun returnIndexOfMoveSet(moveSet: List<PrisonersDilemmaRoundResult>): Int {
-        if (moveSet.size > decisionTreeDepth)
-            error("Invalid moveSet size: ${moveSet.size}. This should never happen.")
+    fun returnIndexOfMoveSet(mutualPayoffHistory: List<Pair<Int, Int>>): Int {
+        if (mutualPayoffHistory.size > decisionTreeDepth)
+            error("Invalid moveSet size: ${mutualPayoffHistory.size}. This should never happen.")
 
         var currentTreePosition = root
-        moveSet.forEach { previousRound ->
-            // Player A is assumed to be the one looking back.
-            val rememberedMovePair = Pair(previousRound.playerAScore, previousRound.playerBScore)
+        mutualPayoffHistory.forEach { previousRound ->
+            // The first player / player A is assumed to be the one looking back.
+            val rememberedMovePair = Pair(previousRound.first, previousRound.second)
             currentTreePosition.children.forEach { childNode ->
                 val childNodePayoffPair = Pair(childNode.playerAPayoff, childNode.playerBPayoff)
                 if (rememberedMovePair == childNodePayoffPair) {
