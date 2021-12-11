@@ -3,242 +3,245 @@ package prisonersDilemma
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import core.Agent
+import core.Characteristic
+import core.Classifier
 import core.CoroutineHandler
-import core.Playground
-import kotlinx.coroutines.*
-import kotlin.math.pow
+import kotlinx.coroutines.launch
+
+/*
+    The decisionTree which acts as a map of all possible move-combinations in the game, going back to an
+    arbitrary depth (by default 3 turns).
+ */
+val decisionTree = PrisonersDilemmaDecisionTree()
 
 /**
- * This is the simulation which brings the game and the players together and runs the experiment.
- * It holds the data in a way that Compose can read while it is running.
+ * Returns a Classifier which represents a Strategy for the game Prisoner's Dilemma, with randomly-
+ * generated Characteristics. A randomly-generated strategy is sure to be pretty bad, most of the time.
  */
-class PrisonersDilemmaPlayground(
-    coroutineHandler: CoroutineHandler,
-) : Playground(coroutineHandler) {
-    // These are "demoMode fluff" data points which help to illustrate what is happening:
-    var percentSolutionsExplored by mutableStateOf(0.0)
-    var numSolutionsExplored by mutableStateOf(0)
-   /*
-        Although the book "Signals and Boundaries" suggests using a resource-acquisition-based system instead
-        of averages when it comes to testing for fitness, these metrics are still useful for demoMode (if somewhat
-        non-performant to collect).
-    */
-    var averageScoreWithinPool by mutableStateOf(0.0)
-    var averageScoreAgainstAlwaysDefects by mutableStateOf(0.0)
-    var winPercentAgainstAlwaysDefects by mutableStateOf(0.0)
-    var averageScoreAgainstAlwaysCooperates by mutableStateOf(0.0)
-    var winPercentAgainstAlwaysCooperates by mutableStateOf(0.0)
-    var averageScoreAgainstTitForTat by mutableStateOf(0.0)
-    var winPercentAgainstTitForTat by mutableStateOf(0.0)
-    var averageScoreAgainstRandom by mutableStateOf(0.0)
-    var winPercentAgainstRandom by mutableStateOf(0.0)
-
+fun randomPrisonersDilemmaStrategy(): Classifier {
     /**
-     * Resets the app.
+     * Returns a random set of Characteristics representing a strategy for the game Prisoner's Dilemma.
      */
-    override suspend fun reset() {
-        coroutineHandler.cancel()
-        winPercentAgainstAlwaysDefects = 0.0
-        winPercentAgainstAlwaysCooperates = 0.0
-        winPercentAgainstTitForTat = 0.0
-        winPercentAgainstRandom = 0.0
-        averageScoreWithinPool = 0.0
-        averageScoreAgainstAlwaysDefects = 0.0
-        averageScoreAgainstAlwaysCooperates = 0.0
-        averageScoreAgainstTitForTat = 0.0
-        averageScoreAgainstRandom = 0.0
-        percentSolutionsExplored = 0.0
-        numSolutionsExplored = 0
-        currentGeneration = -1
-        started = false
-        finished = false
-        coroutineHandler.cancelled = false
+    fun randomCharacteristics(): List<Characteristic> {
+        return mutableListOf<Characteristic>().let { list ->
+            val characteristicIndexRange = 1..84
+            for (index in characteristicIndexRange) {
+                list.add(Characteristic(index.toString()))
+            }
+            list
+        }
+    }
+
+    return Classifier(
+        ruleName = "prisonersDilemmaStrategy",
+        characteristics = randomCharacteristics(),
+        ruleBehavior = { signal, self ->
+            /*
+                This Classifier takes a Signal to play a game of Prisoner's Dilemma against a specific
+                opponent for a specific number of rounds. It returns the result of this exchange as an
+                outgoing Signal.
+             */
+            signal as SignalToPlayPrisonersDilemma
+
+            // Get the desired # of rounds from the signal:
+            val numRounds = signal.numRounds
+
+            // Get the opponent from the signal (for now just a random bot):
+            val opposition = signal.opposition
+
+            // Scores and score history for each player:
+            var score = 0
+            val scoreHistory = mutableListOf<Int>()
+            var oppositionScore = 0
+            val oppositionScoreHistory = mutableListOf<Int>()
+
+            repeat (numRounds) {
+                // Mutual scoring history from this Classifier's perspective:
+                val mutualPayoffHistory = scoreHistory
+                    .zip(oppositionScoreHistory)
+                    .reversed()
+                    .slice(0 until decisionTreeDepth.coerceAtMost(scoreHistory.size))
+
+                // Decision for this Classifier to "defect" or not in the game of Prisoner's Dilemma:
+                val defects = decisionTree
+                    .returnIndexOfMoveSet(mutualPayoffHistory)
+                    .let { self.hasActiveGene(it.toString()) }
+
+                // The scoring history flipped for the opponent's point of view:
+                val flippedPov = mutualPayoffHistory
+                    .map { Pair(it.second, it.first) }
+
+                // Decision for the opponent to "defect" or not in the game of Prisoner's Dilemma:
+                val oppositionDefects = decisionTree
+                    .returnIndexOfMoveSet(flippedPov)
+                    .let { opposition.hasActiveGene(it.toString()) }
+
+                // There are four possible ways the round can go:
+                val payoffs = when (Pair(defects, oppositionDefects)) {
+                    Pair(true, true) -> Pair(rewardPayoff, rewardPayoff)
+                    Pair(true, false) -> Pair(temptationPayoff, suckersPayoff)
+                    Pair(false, true) -> Pair(suckersPayoff, temptationPayoff)
+                    else -> Pair(punishmentPayoff, punishmentPayoff)
+                }
+
+                // Update the scores and histories:
+                score += payoffs.first
+                scoreHistory.add(payoffs.first)
+                oppositionScore += payoffs.second
+                oppositionScoreHistory.add(payoffs.second)
+            }
+
+            // Return a signal that the game has been completed, and what the score was:
+            SignalThatPrisonersDilemmaHasBeenPlayed(score, oppositionScore, numRounds)
+        }
+    )
+}
+
+/**
+ * Returns a prisonersDilemmaPlayer Agent a randomPrisonersDilemmaStrategy() as its lone Classifier.
+ */
+fun randomPrisonersDilemmaPlayer(): Agent {
+    return Agent(
+        agentName = "prisonersDilemmaPlayer",
+        classifiers = listOf(randomPrisonersDilemmaStrategy()),
+    )
+}
+
+/**
+ * A "signal" which instructs a prisonersDilemmaPlayer to play a game of Iterated Prisoner's Dilemma for a given
+ * number of rounds against a given opponent (for now, a random bot).
+ */
+data class SignalToPlayPrisonersDilemma (
+    val numRounds: Int,
+    val opposition: Classifier = randomPrisonersDilemmaStrategy()
+)
+
+/**
+ * A "signal" which indicates that a game of Iterated Prisoner's Dilemma has been played, and what the score was.
+ */
+data class SignalThatPrisonersDilemmaHasBeenPlayed (
+    val score: Int,
+    val oppositionScore: Int,
+    val numRounds: Int,
+)
+
+/**
+ * A concurrent simulation which sets up a population of prisonersDilemmaPlayers and evolves them against
+ * randomly-generated bots until they are mature. It is a place for the simulation to run "out of the way" of the
+ * Compose front-end.
+ *
+ * Tentatively, they are considered "mature" when a win-rate of 95%+ is achieved by the whole pool against
+ * random bots. I will likely change this in the future to be more nuanced.
+ */
+class PrisonersDilemmaPlayground {
+    var timeStep by mutableStateOf(0)
+    var started by mutableStateOf(false)
+    var finished by mutableStateOf(false)
+    var averageScoreAgainstRandom by mutableStateOf(0.0)
+    var averageWinPercentAgainstRandom by mutableStateOf(0.0)
+
+    // A population of Prisoner's Dilemma Players:
+    private var population: List<Agent> = mutableListOf<Agent>().let { list ->
+        repeat (defaultGenePoolSize) {
+            list.add(randomPrisonersDilemmaPlayer())
+        }
+        list
     }
 
     /**
-     * The experiment is pretty straightforward: The size of the gene pool never changes. The most fit reproduce
-     * using combination and crossover, the most fit survivors (including the parents) fill in the remainder of the
-     * next generation, and the least fit from a previous generation fall off. At each generation, the pool as a
-     * whole will pair off and play each other -- this is the score which will act as a sort of
-     * selective "pressure". Then,the whole pool is tested against a group of control bots in order to see how
-     * much progress they have made as a whole relative to known archetypes. They will rather quickly reach a
-     * sort of equilibrium which is in general pretty effective (even against good bots such as titForTat).
-     *
-     * When the experiment is in demoMode, it displays a lot of additional information in the front-end which
-     * allows the user to observe how this works. This stuff takes a lot of extra cycles to calculate and display,
-     * and it is possible to turn off demoMode in order to see how fast this can be when more optimized. When
-     * demoMode is off, most cycle-wasting actions are locked behind an if-statement. If it weren't for all the demo
-     * fluff and testing, this would be a pretty short function. It runs very fast when demoMode = false.
+     * Runs the whole simulation from start to finish. It ends when the population has a 95%+ win-rate against
+     * random bots.
      */
-    override suspend fun run() {
-        val numRoundsRange = prisonersDilemmaRoundRange
-        val genePoolSize = defaultGenePoolSize
-        val demoMode = true
+    suspend fun runSimulation(coroutineHandler: CoroutineHandler) {
         val coroutineScope = coroutineHandler.coroutineScope
-
-        // Set up a gene pool:
-        val classifierPool = PrisonersDilemmaPlayerPool(genePoolSize)
-
-        // Ensure there are no active jobs:
-        coroutineHandler.joinAndClearActiveJobs()
-
-        // Set up the set of all seen genomes:
-        val seenGenomes = mutableSetOf<String>()
-
-        /**
-         * Tracks each observed permutation of the gene pool and reports on how many have been seen,
-         * and what percentage of the total possible genomes this represents. Although this one would
-         * probably not be included in a performance-conscious app, it helps to illustrate why the
-         * genetic algorithm is so good. By the time optimal solutions have been found against titForTat and
-         * alwaysCooperates, often *far* less than 1% of the total "search space" will have been explored. It is a
-         * neat demonstration of how these algorithms work.
-         *
-         * This is "demo fluff" and is only used during demoMode.
-         */
-        fun observeGenomes() {
-            classifierPool.pool.asSequence()
-                .map { it.asBinaryString() }
-                .filter { it !in seenGenomes }
-                .forEach { seenGenomes.add(it) }
-
-            numSolutionsExplored = seenGenomes.size
-
-            val possibleSolutions = (2.0).pow(classifierPool.pool.first().characteristics.size)
-
-            percentSolutionsExplored = seenGenomes
-                .size
-                .toDouble()
-                .div(possibleSolutions)
-                .times(100.0)
-        }
-
         started = true
+        while(!finished) {
+            var totalScore = 0.0
+            var totalWins = 0.0
+            val roundsToPlay = prisonersDilemmaRoundRange.random()
 
-        /**
-         * For this example, the simulation is considered "over" when the pool reaches a stable equilibrium
-         * that involves having a 1.0 average score against itself, which happens to coincide with a 1.0
-         * average against alwaysCooperates as well as against titForTat. That is the "goal" of the
-         * experiment: it reaches a stable equilibrium that is also competitive.
-         */
-        fun simulationOver(): Boolean {
-            return averageScoreWithinPool == 1.0
-        }
-
-        /**
-         * Runs the whole ClassifierPool against a given kind of bot and returns the average score.
-         * Can be instructed to countTowardsWins for individual Classifiers or not. Can also be instructed to
-         * compete within the generation only.
-         *
-         * botType is a string. The acceptable kinds of bots can be found in PrisonersDilemmaPlayer.kt. "random"
-         * will generate wholly random players. "withinPool" will pick opponents randomly from within the
-         * ClassifierPool.
-         */
-        suspend fun playGames(
-            botType: String,
-            countsTowardsWins: Boolean,
-        ): Pair<Double, Double> { // TODO: Maybe a class instead of this tuple?
-
-            // Play the games, tracking the scores:
-            var scoreSum = 0.0
-            var numWins = 0.0
-            classifierPool.pool.forEach { player ->
+            // for now, testing against random
+            population.forEach { agent ->
                 coroutineHandler.addJob(coroutineScope.launch {
-                    PrisonersDilemmaGame(
-                        roundsToPlay = numRoundsRange.random(),
-                        playerA = player as PrisonersDilemmaPlayer,
-                        playerB = when (botType) {
-                            "withinPool" -> classifierPool.pool.random()
-                            "random" -> PrisonersDilemmaPlayer()
-                            "alwaysDefects" -> prisonersDilemmaBots["alwaysDefects"]
-                            "alwaysCooperates" -> prisonersDilemmaBots["alwaysCooperates"]
-                            "titForTat" -> prisonersDilemmaBots["titForTat"]
-                            else -> error("Invalid botType: $botType")
-                        } as PrisonersDilemmaPlayer,
-                        interactiveMode = false,
-                        countsTowardsWins = countsTowardsWins
-                    ).play().let { gameResult ->
-                        scoreSum += gameResult.playerTotalScore
-                        if (gameResult.win)
-                            numWins += 1 //todo: verify ++ is the same for Doubles?
-                    }
+                    val signal = agent.applyRule(
+                        ruleName = "prisonersDilemmaStrategy",
+                        dataBundle = SignalToPlayPrisonersDilemma(roundsToPlay) // against a random foe for now
+                    ) as SignalThatPrisonersDilemmaHasBeenPlayed
+
+                    totalScore += signal.score
+
+                    // Players get 2 food for scoring less than the opponent, 1 food for tying, and 0 for scoring more.
+                    agent.addResources(
+                        resourceName = "prisonersDilemmaPoints",
+                        amount = if (signal.score < signal.oppositionScore)
+                            majorWinReward
+                        else if (signal.score == signal.oppositionScore)
+                            minorWinReward
+                        else
+                            0
+                    )
+
+                    // Currently, counting less than or equal to as a win:
+                    if (signal.score <= signal.oppositionScore)
+                        totalWins++
                 })
             }
-
-            // Wait for all coroutines to complete:
             coroutineHandler.joinAndClearActiveJobs()
 
-            // Collect the result in the form of Pair<averageScore, winPercent>:
-            return Pair(scoreSum / genePoolSize, numWins / genePoolSize * 100.0)
-        }
+            // Collect scores:
+            averageScoreAgainstRandom = totalScore
+                .div(population.size)
 
-        // Run the experiment for a number of generations:
-        for (generationNumber in 0 until defaultGenerationLimit) {
-            currentGeneration = generationNumber
+            // Collect win %:
+            averageWinPercentAgainstRandom = totalWins
+                .div(population.size)
+                .times(100.0)
 
-            // Members of generation play each other for the wins which count:
-            playGames(
-                botType = "withinPool",
-                countsTowardsWins = true
-            ).let { averageScoreWithinPool = it.first }
+            // Check for finished-condition:
+            if (averageWinPercentAgainstRandom >= 95.0)
+                finished = true
 
-            // Wait for all coroutines to complete:
-            coroutineHandler.joinAndClearActiveJobs() // <-- May be able to delete this line. todo
+            // Preparing a new population:
+            val newPopulation = mutableListOf<Agent>()
 
-            // Produce a new generation using the average within the pool as the selective pressure:
-            val nextGeneration = classifierPool.nextGeneration() // todo: this
+            // All Agents above the reproduction threshold pair off at random:
+            val reproducingAgents = population
+                .filter { it.numResources("prisonersDilemmaPoints") >= prisonersDilemmaReproductionThreshold }
+                .shuffled()
 
-            /*
-                demoMode is where the expensive fluff lives. These metrics are useful but they slow things down.
-                Turning off demoMode can demonstrate how fast genetic algorithms can be.
-             */
-            if (demoMode) {
-                // Collect test data for the generation:
-                prisonersDilemmaBots.keys.forEach { botType ->
-                    playGames(
-                        botType = botType,
-                        countsTowardsWins = false
-                    ).let { pair ->
-                        when (botType) {
-                            // Add average score against the type of bot:
-                            "alwaysDefects" -> {
-                                averageScoreAgainstAlwaysDefects = pair.first
-                                winPercentAgainstAlwaysDefects = pair.second
-                            }
-                            "alwaysCooperates" -> {
-                                averageScoreAgainstAlwaysCooperates = pair.first
-                                winPercentAgainstAlwaysCooperates = pair.second
-                            }
-                            "titForTat" -> {
-                                averageScoreAgainstTitForTat = pair.first
-                                winPercentAgainstTitForTat = pair.second
-                            }
-                        }
-                    }
-                }
+            // The whole population (including those reproducing) in descending order by prisonersDilemmaPoints
+            // (before they've been spent):
+            val orderedByPoints = population
+                .sortedByDescending { it.numResources("prisonersDilemmaPoints") }
 
-                // Test against pure random bots:
-                playGames(
-                    botType = "random",
-                    countsTowardsWins = false
-                ).let { pair ->
-                    averageScoreAgainstRandom = pair.first
-                    winPercentAgainstRandom = pair.second
-                }
-
-                // Observe current genomes:
-                observeGenomes()
+            // All reproducing pairs contribute their "offspring" to the newPopulation:
+            reproducingAgents
+                .chunked(2)
+                .forEach { pair ->
+                if (pair.size == 1)
+                    newPopulation.add(pair.first().clone())
+                else
+                    pair.first()
+                        .combine(pair.last())
+                        .forEach { newPopulation.add(it) }
             }
 
-            // Set the new generation:
-            classifierPool.pool = nextGeneration
-
-            if (coroutineHandler.cancelled) {
-                coroutineHandler.joinAndClearActiveJobs()
-                delay(1000)
-                break
+            // Survivors are added from most-to-least fit until the newPopulation is full, leaving the least fit
+            // to fall out of the pool:
+            for (survivor in orderedByPoints) {
+                if (newPopulation.size >= population.size)
+                    break
+                if (survivor in reproducingAgents)
+                    survivor.consumeResources("prisonersDilemmaPoints", prisonersDilemmaReproductionThreshold)
+                newPopulation.add(survivor)
             }
-        }
 
-        finished = true
+            // Set the new population:
+            population = newPopulation
+
+            // Advance the time-step
+            timeStep++
+        }
     }
 }
