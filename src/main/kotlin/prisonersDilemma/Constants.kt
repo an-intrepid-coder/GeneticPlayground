@@ -7,15 +7,7 @@ val prisonersDilemmaRoundRange = 100..200
 const val defaultGenePoolSize = 3000
 
 // The threshold at which a PrisonersDilemmaPlayer will reproduce:
-const val prisonersDilemmaPlayerReproductionThreshold = 30
-
-/*
-    Only a few dozen generations are needed to demonstrate what is happening, but if curious then one could let it run
-    indefinitely. There are some data structures which might not be optimized for that, although if so then that is
-    an oversight on my part and will be fixed eventually -- it should be safe to run it for a very long time. This
-    default limit is just a precaution.
- */
-const val defaultGenerationLimit = 100000
+const val prisonersDilemmaReproductionThreshold = 30
 
 /*
     The depth of the decision tree represents how many turns "back" each player will attempt to account for.
@@ -23,7 +15,8 @@ const val defaultGenerationLimit = 100000
     I have built the tree to be able to handle it. The biggest effect of doing so would be a need to increase the
     size of the "binary string" which represents the "genome". 3 turns back is already 84 different possibilities
     when you consider the first 3 turns as well as all turns after the first 3. That makes it an 84-bit search
-    space, which is already enormous.
+    space, which is already enormous. I am confident that there is still a better way to handle the decision tree,
+    and I will experiment with more depth at some point.
  */
 const val decisionTreeDepth = 3
 
@@ -35,6 +28,10 @@ const val rewardPayoff = 1
 const val punishmentPayoff = 2
 const val temptationPayoff = 0
 const val suckersPayoff = 3
+
+// Resource reward values:
+const val majorWinReward = 2
+const val minorWinReward = 1
 
 // The four possible outcomes of a round:
 val possibleOutcomes = listOf(
