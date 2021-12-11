@@ -13,7 +13,6 @@ import kotlin.system.exitProcess
 class CoroutineHandler {
     val coroutineScope = CoroutineScope(newFixedThreadPoolContext(8, "appThreads"))
     var activeJobs = mutableListOf<Job>()
-    var cancelled = false
 
     fun addJob(job: Job) {
         activeJobs.add(job)
@@ -32,8 +31,6 @@ class CoroutineHandler {
      * It could be better and I will improve it.
      */
     suspend fun cancel(exit: Boolean = false) {
-        cancelled = true
-        delay(1000)
         activeJobs.forEach { it.cancelAndJoin() }
         activeJobs = mutableListOf()
         if (exit)
