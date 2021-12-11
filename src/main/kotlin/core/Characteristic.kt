@@ -1,19 +1,18 @@
 package core
 
 /**
- * The "gene" of the Core.Classifier system. It has a name, an active/inactive boolean, and behavior which embodies the
- * rule/action system as described in Holland's paper.
+ * Characteristics are primarily a name and a boolean representing an on/off state. This is important for the
+ * rest of the Genetic Algorithm. New Characteristics start randomly on/off except as a result of combination
+ * between Classifiers.
  */
 class Characteristic(
     val name: String,
     var active: Boolean = coinFlip(),
 ) {
-    fun prettyPrint(): String {
-        return "$name = $active"
-    }
-
-    fun asBitString(): String { return if (active) "1" else "0" }
-
+    /**
+     * During Classifier combination, there is a small chance that a Characteristic will "mutate" and result in
+     * the opposite active state.
+     */
     fun applyMutationFrequency(mutationFrequency: Int) {
         if (withChance(mutationFrequency, 1))
             active = !active
