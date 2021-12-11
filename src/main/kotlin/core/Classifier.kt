@@ -1,24 +1,33 @@
 package core
 
-import prisonersDilemma.PrisonersDilemmaPlayer
-
 /**
- * The "chromosome" of the Core.Classifier system. It consists of a list of Characteristics and the means to "reproduce".
- * It can be sub-classed for more specific purposes.
+ * Classifiers represent an adaptation to a rule set. They have a ruleName, a set of Characteristics,
+ * and some implementation-defined behavior which represents the reaction that happens when a valid rule
+ * is applied to those characteristics. In the Prisoner's Dilemma example, the Classifier and its characteristics
+ * represent a strategy for the game Prisoner's Dilemma, and ruleBehavior plays a game of Iterated Prisoner's Dilemma
+ * according to that strategy. That's just one way to use this; I have left some of it open to interpretation.
  */
-abstract class Classifier(
+class Classifier(
+    // The ruleName is used to determine whether an agent responds to a signal:
+    val ruleName: String,
+    // The characteristics are the individual "genes" which make up the rule set of the Classifier:
     val characteristics: List<Characteristic>,
-) {
-    /**
-     * Returns a copy of the classifier that is one generation older.
+    /*
+        ruleBehavior should be a function that takes some kind of bundle of data and returns some kind of bundle of
+        data, but I am leaving that implementation detail open to interpretation. What is important is that this
+        is where the "effect" part of the Classifier should go. See the Prisoner's Dilemma package for a simple
+        example. The Classifier parameter should be the calling Classifier itself.
      */
-    abstract fun emitSurvivor(): Classifier
-
+    val ruleBehavior: (Any, Classifier) -> Any,
+) {
     /**
      * Combines two Classifiers, producing two new Classifiers, with a chance for mutation and with the use of
      * "crossover", as described in John Holland's paper.
      */
     fun combine(other: Classifier): List<Classifier> {
+        if (ruleName != other.ruleName)
+            error("Mismatched Classifiers")
+
         val childACharacteristics = mutableListOf<Characteristic>()
         val childBCharacteristics = mutableListOf<Characteristic>()
 
@@ -44,20 +53,9 @@ abstract class Classifier(
         }
 
         return listOf(
-            PrisonersDilemmaPlayer(childACharacteristics),
-            PrisonersDilemmaPlayer(childBCharacteristics),
+            Classifier(ruleName, childACharacteristics, ruleBehavior),
+            Classifier(ruleName, childBCharacteristics, ruleBehavior),
         )
-    }
-
-    /**
-     * Returns a binary string of all the possible characteristics (which should be in a consistent order among
-     * all instances of the Core.Classifier -- e.g. alphabetical) represented as 0s for Inactive and 1st for Active, as
-     * suggested in John Holland's paper.
-     */
-    fun asBinaryString(): String {
-        var bitString = ""
-        characteristics.forEach { bitString += it.asBitString() }
-        return bitString
     }
 
     /**
