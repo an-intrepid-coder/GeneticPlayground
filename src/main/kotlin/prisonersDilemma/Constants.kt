@@ -1,12 +1,15 @@
 package prisonersDilemma
 
+// The number of digits (including the decimal point) to be included in certain GUI elements:
+const val interfaceDigits = 8
+
 // The number of rounds per game of Iterated Prisoner's Dilemma is chosen from a random range:
 val prisonersDilemmaRoundRange = 100..200
 
 // The static size of the "gene pool" from which Classifiers are drawn from and reproduce back in to:
 const val defaultGenePoolSize = 3000
 
-// The threshold at which a PrisonersDilemmaPlayer will reproduce:
+// The threshold at which a PrisonersDilemmaPlayer will reproduce. This was chosen pretty arbitrarily; will refine it.
 const val prisonersDilemmaReproductionThreshold = 30
 
 /*
