@@ -51,8 +51,18 @@ fun PrisonersDilemmaInterface(
             WavyBorder()
             LabeledText("Time Step", playground.timeStep.toString())
             WavyBorder()
-            LabeledText("Avg Score vs. Random", playground.averageScoreAgainstRandom.toString())
-            LabeledText("Win % vs. Random", playground.averageWinPercentAgainstRandom.toString())
+            LabeledText(
+                label = "Avg Score vs. Random",
+                value = playground
+                    .averageScoreAgainstRandom
+                    .toString()
+                    .let { trimStringForInterface(it) }
+            )
+            LabeledProgressBar(
+                percentAsInt = playground.averageWinPercentAgainstRandom.toInt(),
+                label = "Win % vs. Random",
+                value = playground.averageWinPercentAgainstRandom.toString(),
+            )
         }
     }
 }
