@@ -11,6 +11,10 @@ class Agent(
     val classifiers: List<Classifier>,
     private val resources: MutableMap<String, Int> = mutableMapOf()
 ) {
+    fun getClassifierOrNull(ruleName: String): Classifier? {
+        return classifiers.firstOrNull { it.ruleName == ruleName }
+    }
+
     /**
      * Clone's the Agent, but does not include its resources.
      */
@@ -36,7 +40,7 @@ class Agent(
                 null -> amount
                 else -> currentAmount + amount
             }
-            resources[resourceName]!!
+            resources[resourceName] ?: 0
         }
     }
 
