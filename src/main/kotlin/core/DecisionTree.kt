@@ -22,6 +22,8 @@ class DecisionTree(
     val depth: Int,
     val allOutcomes: List<Outcome>,
 ) {
+    var numNodes = 0
+
     /**
      * Unless root, contains an outcome and, if not the bottom level of the tree, then also children for each outcome.
      * Each node has an id, and that id corresponds to a unique chain of outcomes.
@@ -55,7 +57,6 @@ class DecisionTree(
         }
     }
 
-    var numNodes = 0
     private val root = DecisionTreeNode(
         id = numNodes++,
         currentDepth = 0,
