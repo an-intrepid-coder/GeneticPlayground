@@ -3,17 +3,34 @@ package prisonersDilemma
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import core.Agent
-import core.Characteristic
-import core.Classifier
-import core.CoroutineHandler
+import core.*
 import kotlinx.coroutines.launch
+
+// The four possible outcomes of a round:
+val possibleOutcomes = listOf(
+    Outcome(
+        name = "bothCooperate",
+        value = Pair(rewardPayoff, rewardPayoff),
+    ),
+    Outcome(
+        name = "playerBWins",
+        value = Pair(suckersPayoff, temptationPayoff),
+    ),
+    Outcome(
+        name = "playerAWins",
+        value = Pair(temptationPayoff, suckersPayoff),
+    ),
+    Outcome(
+        name = "bothDefect",
+        value = Pair(punishmentPayoff, punishmentPayoff)
+    )
+)
 
 /*
     The decisionTree which acts as a map of all possible move-combinations in the game, going back to an
     arbitrary depth (by default 3 turns).
  */
-val decisionTree = PrisonersDilemmaDecisionTree()
+val decisionTree = DecisionTree(decisionTreeDepth, possibleOutcomes)
 
 /**
  * Returns a Classifier which represents a Strategy for the game Prisoner's Dilemma, with randomly-
@@ -52,44 +69,50 @@ fun randomPrisonersDilemmaStrategy(): Classifier {
 
             // Scores and score history for each player:
             var score = 0
-            val scoreHistory = mutableListOf<Int>()
             var oppositionScore = 0
-            val oppositionScoreHistory = mutableListOf<Int>()
+            val outcomeHistory = mutableListOf<Outcome>()
+
+            fun trimHistory(maxSize: Int) {
+                while (outcomeHistory.size > maxSize)
+                    outcomeHistory.removeFirst()
+            }
+
+            fun flippedHistoryPov(): List<Outcome> {
+                return outcomeHistory
+                    .map { outcome ->
+                        Outcome(
+                            name = outcome.name,
+                            value = Pair((outcome.value as Pair<Int, Int>).second, outcome.value.first)
+                        )
+                    }
+            }
 
             repeat (numRounds) {
-                // Mutual scoring history from this Classifier's perspective:
-                val mutualPayoffHistory = scoreHistory
-                    .zip(oppositionScoreHistory)
-                    .reversed()
-                    .slice(0 until decisionTreeDepth.coerceAtMost(scoreHistory.size))
+                // Trim the history:
+                trimHistory(decisionTreeDepth)
 
                 // Decision for this Classifier to "defect" or not in the game of Prisoner's Dilemma:
                 val defects = decisionTree
-                    .returnIndexOfMoveSet(mutualPayoffHistory)
+                    .idOfOutcomeChain(outcomeHistory.reversed())
                     .let { self.hasActiveGene(it.toString()) }
-
-                // The scoring history flipped for the opponent's point of view:
-                val flippedPov = mutualPayoffHistory
-                    .map { Pair(it.second, it.first) }
 
                 // Decision for the opponent to "defect" or not in the game of Prisoner's Dilemma:
                 val oppositionDefects = decisionTree
-                    .returnIndexOfMoveSet(flippedPov)
+                    .idOfOutcomeChain(flippedHistoryPov().reversed())
                     .let { opposition.hasActiveGene(it.toString()) }
 
                 // There are four possible ways the round can go:
-                val payoffs = when (Pair(defects, oppositionDefects)) {
-                    Pair(true, true) -> Pair(rewardPayoff, rewardPayoff)
-                    Pair(true, false) -> Pair(temptationPayoff, suckersPayoff)
-                    Pair(false, true) -> Pair(suckersPayoff, temptationPayoff)
-                    else -> Pair(punishmentPayoff, punishmentPayoff)
+                val outcome = when (Pair(defects, oppositionDefects)) {
+                    Pair(true, true) -> Outcome("bothDefect", Pair(punishmentPayoff, punishmentPayoff))
+                    Pair(true, false) -> Outcome("playerAWins", Pair(temptationPayoff, suckersPayoff))
+                    Pair(false, true) -> Outcome("playerBWins", Pair(suckersPayoff, temptationPayoff))
+                    else -> Outcome("bothCooperate", Pair(rewardPayoff, rewardPayoff))
                 }
 
                 // Update the scores and histories:
-                score += payoffs.first
-                scoreHistory.add(payoffs.first)
-                oppositionScore += payoffs.second
-                oppositionScoreHistory.add(payoffs.second)
+                score += (outcome.value as Pair<Int, Int>).first
+                oppositionScore += outcome.value.second
+                outcomeHistory.add(outcome)
             }
 
             // Return a signal that the game has been completed, and what the score was:
