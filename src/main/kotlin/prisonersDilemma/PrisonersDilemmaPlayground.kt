@@ -180,13 +180,16 @@ class PrisonersDilemmaPlayground {
         val coroutineScope = coroutineHandler.coroutineScope
         started = true
         while(!finished) {
-            // The total score and # of wins for this generation against random bots:
+            // A small cost-of-living adjustment to push bad builds out of the pool:
+            population.forEach { it.consumeResources("prisonersDilemmaPoints", 1) }
+
+            // The total score and # of wins for this time step against random bots:
             var totalScoreAgainstRandom = 0.0
             var totalWinsAgainstRandom = 0.0
 
             // Run the population through a number of tests which reward for success:
             population.forEach { agent ->
-                // Test against the random population:
+                // Test against the outside population. There is a penalty for losing here:
                 coroutineHandler.addJob(coroutineScope.launch {
                     val signal = agent.applyRule(
                         ruleName = "prisonersDilemmaStrategy",
@@ -196,15 +199,12 @@ class PrisonersDilemmaPlayground {
                     totalScoreAgainstRandom += signal.score
 
                     // Players get 2 food for scoring less than the opponent, 1 food for tying, and 0 for scoring more.
-                    agent.addResources(
-                        resourceName = "prisonersDilemmaPoints",
-                        amount = if (signal.score < signal.oppositionScore)
-                            majorWinReward
-                        else if (signal.score == signal.oppositionScore)
-                            minorWinReward
-                        else
-                            0
-                    )
+                    if (signal.score < signal.oppositionScore)
+                        agent.addResources("prisonersDilemmaPoints", 2)
+                    else if (signal.score == signal.oppositionScore)
+                        agent.addResources("prisonersDilemmaPoints", 1)
+                    else
+                        agent.consumeResources("prisonersDilemmaPoints", 1)
 
                     // Currently, counting less than or equal to as a win:
                     if (signal.score <= signal.oppositionScore)
@@ -213,6 +213,7 @@ class PrisonersDilemmaPlayground {
 
                 // Test against the best Agent in the pool. (note: will use more nuanced criteria later) This is
                 // to make sure that the whole pool has a chance to face the best possible opposition every timeStep.
+                // There is no penalty for doing poorly in this one.
                 coroutineHandler.addJob(coroutineScope.launch {
                     val signal = agent.applyRule(
                         ruleName = "prisonersDilemmaStrategy",
@@ -236,27 +237,25 @@ class PrisonersDilemmaPlayground {
                 })
 
                 // Test against random Agents in the pool. This helps to keep the pool strong even after it has
-                // become much better than average.
+                // become much better than average. There is a penalty for all Agents who lose here.
                 coroutineHandler.addJob(coroutineScope.launch {
                     val signal = agent.applyRule(
                         ruleName = "prisonersDilemmaStrategy",
                         dataBundle = SignalToPlayPrisonersDilemma(
                             opposition = population
-                                .minByOrNull { it.numResources("prisonersDilemmaPoints") }!!
+                                .random()
                                 .getClassifierOrNull("prisonersDilemmaStrategy")!!
                         )
                     ) as SignalThatPrisonersDilemmaHasBeenPlayed
 
-                    // Players get 2 food for scoring less than the opponent, 1 food for tying, and 0 for scoring more.
-                    agent.addResources(
-                        resourceName = "prisonersDilemmaPoints",
-                        amount = if (signal.score < signal.oppositionScore)
-                            majorWinReward
-                        else if (signal.score == signal.oppositionScore)
-                            minorWinReward
-                        else
-                            0
-                    )
+                    // Players get 2 food for scoring less than the opponent, 1 food for tying, and lose a resource
+                    // for scoring more:
+                    if (signal.score < signal.oppositionScore)
+                        agent.addResources("prisonersDilemmaPoints", 2)
+                    else if (signal.score == signal.oppositionScore)
+                        agent.addResources("prisonersDilemmaPoints", 1)
+                    else
+                        agent.consumeResources("prisonersDilemmaPoints", 1)
                 })
             }
 
