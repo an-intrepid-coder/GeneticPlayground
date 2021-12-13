@@ -35,11 +35,3 @@ const val suckersPayoff = 3
 // Resource reward values:
 const val majorWinReward = 2
 const val minorWinReward = 1
-
-// The four possible outcomes of a round:
-val possibleOutcomes = listOf(
-    Pair(rewardPayoff, rewardPayoff),
-    Pair(suckersPayoff, temptationPayoff),
-    Pair(temptationPayoff, suckersPayoff),
-    Pair(punishmentPayoff, punishmentPayoff)
-)
