@@ -15,11 +15,9 @@ const val prisonersDilemmaReproductionThreshold = 30
 /*
     The depth of the decision tree represents how many turns "back" each player will attempt to account for.
     The default of 3 is what was mentioned in John Holland's paper, but one could use more depth if they wanted.
-    I have built the tree to be able to handle it. The biggest effect of doing so would be a need to increase the
-    size of the "binary string" which represents the "genome". 3 turns back is already 84 different possibilities
-    when you consider the first 3 turns as well as all turns after the first 3. That makes it an 84-bit search
-    space, which is already enormous. I am confident that there is still a better way to handle the decision tree,
-    and I will experiment with more depth at some point.
+    I have built the tree to be able to handle it. Currently, at depths greater than 3, it is much harder to get the
+    pool to evolve past a certain win-rate. Deeper trees are a work in progress, as they will probably be necessary
+    for other games.
  */
 const val decisionTreeDepth = 3
 
