@@ -42,7 +42,7 @@ fun randomPrisonersDilemmaStrategy(): Classifier {
      */
     fun randomCharacteristics(): List<Characteristic> {
         return mutableListOf<Characteristic>().let { list ->
-            val characteristicIndexRange = 1..84
+            val characteristicIndexRange = 1 until decisionTree.numNodes
             for (index in characteristicIndexRange) {
                 list.add(Characteristic(index.toString()))
             }
@@ -180,7 +180,7 @@ class PrisonersDilemmaPlayground {
         val coroutineScope = coroutineHandler.coroutineScope
         started = true
         while(!finished) {
-
+            // The total score and # of wins for this generation against random bots:
             var totalScoreAgainstRandom = 0.0
             var totalWinsAgainstRandom = 0.0
 
