@@ -218,10 +218,12 @@ class PrisonersDilemmaPlayground {
                         totalWinsAgainstRandom++
                 })
 
-                // Test against the best Agent in the pool. (note: will use more nuanced criteria later) This is
+                // Test against the "best" Agent in the pool. (note: will use more nuanced criteria later) This is
                 // to make sure that the whole pool has a chance to face the best possible opposition every timeStep.
                 // There is no penalty for doing poorly in this one.
                 coroutineHandler.addJob(coroutineScope.launch {
+
+                    // I've chosen the "oldest" survivor for this step:
                     val oldestSurvivor = population
                         .maxByOrNull { it.numResources("survivorPoints") }!!
 
@@ -230,20 +232,18 @@ class PrisonersDilemmaPlayground {
                     val signal = agent.applyRule(
                         ruleName = "prisonersDilemmaStrategy",
                         dataBundle = SignalToPlayPrisonersDilemma(
-                            opposition = oldestSurvivor
-                                .getClassifierOrNull("prisonersDilemmaStrategy")!!
+                            opposition = oldestSurvivor.getClassifierOrNull("prisonersDilemmaStrategy")!!
                         )
                     ) as SignalThatPrisonersDilemmaHasBeenPlayed
 
-                    // Reward / Punish players for their performance:
+                    // Reward / Punish Agents for their performance:
                     agent.addResources(
                         resourceName = "prisonersDilemmaPoints",
-                        amount = if (signal.score < signal.oppositionScore)
-                            2
-                        else if (signal.score == signal.oppositionScore)
-                            1
-                        else
-                            0
+                        /*
+                            In this case, they are being rewarded for under-cutting the current "strongest",
+                            hopefully encouraging innovation.
+                         */
+                        amount = if (signal.score < signal.oppositionScore) 1 else 0
                     )
                 })
 
@@ -295,8 +295,7 @@ class PrisonersDilemmaPlayground {
 
             numReproduced = reproducingAgents.size
 
-            // The whole population (including those reproducing) in descending order by reproductionPoints and
-            // prisonersDilemmaPoints (before they've been spent):
+            // The whole population (including those reproducing) in descending order by fitness:
             val orderedByPoints = population
                 .sortedByDescending { it.numResources("prisonersDilemmaPoints") }
 
