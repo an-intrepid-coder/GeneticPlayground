@@ -29,7 +29,3 @@ const val rewardPayoff = 1
 const val punishmentPayoff = 2
 const val temptationPayoff = 0
 const val suckersPayoff = 3
-
-// Resource reward values:
-const val majorWinReward = 2
-const val minorWinReward = 1

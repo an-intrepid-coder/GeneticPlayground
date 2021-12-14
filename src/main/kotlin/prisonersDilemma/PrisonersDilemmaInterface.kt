@@ -51,6 +51,10 @@ fun PrisonersDilemmaInterface(
             WavyBorder()
             LabeledText("Time Step", playground.timeStep.toString())
             WavyBorder()
+            LabeledText("Oldest Survivor", playground.mostSurvivorPoints.toString())
+            LabeledText("Most Times Reproduced", playground.mostReproductionPoints.toString())
+            LabeledText("# Reproduced This Step", playground.numReproduced.toString())
+            WavyBorder()
             LabeledText(
                 label = "Avg Score vs. Random",
                 value = playground

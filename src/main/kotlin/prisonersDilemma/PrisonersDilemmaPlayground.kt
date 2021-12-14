@@ -163,6 +163,9 @@ class PrisonersDilemmaPlayground {
     var finished by mutableStateOf(false)
     var averageScoreAgainstRandom by mutableStateOf(0.0)
     var averageWinPercentAgainstRandom by mutableStateOf(0.0)
+    var numReproduced by mutableStateOf(0)
+    var mostSurvivorPoints by mutableStateOf(0)
+    var mostReproductionPoints by mutableStateOf(0)
 
     // A population of Prisoner's Dilemma Players:
     private var population: List<Agent> = mutableListOf<Agent>().let { list ->
@@ -174,18 +177,22 @@ class PrisonersDilemmaPlayground {
 
     /**
      * Runs the whole simulation from start to finish. It ends when the population has a 95%+ win-rate against
-     * random bots.
+     * random bots. The resource system works as follows: When playing against members of the pool or random bots
+     * from outside the pool, there is a "prisonersDilemmaPoints" resource to be gained or lost. These are the points
+     * which are needed for the Agent to reproduce. There are also "reproductionPoints" which are gained every time
+     * an Agent reproduces, and "survivorPoints" which are gained every time an Agent survives a generation. The pool
+     * is tested once per time step against the longest-lived Agent, in order to benefit from what they know.
      */
     suspend fun runSimulation(coroutineHandler: CoroutineHandler) {
         val coroutineScope = coroutineHandler.coroutineScope
         started = true
         while(!finished) {
-            // A small cost-of-living adjustment to push bad builds out of the pool:
-            population.forEach { it.consumeResources("prisonersDilemmaPoints", 1) }
-
             // The total score and # of wins for this time step against random bots:
             var totalScoreAgainstRandom = 0.0
             var totalWinsAgainstRandom = 0.0
+
+            // A small cost-of-living adjustment to push bad builds out of the pool:
+            population.forEach { it.consumeResources("prisonersDilemmaPoints", 1) }
 
             // Run the population through a number of tests which reward for success:
             population.forEach { agent ->
@@ -198,13 +205,13 @@ class PrisonersDilemmaPlayground {
 
                     totalScoreAgainstRandom += signal.score
 
-                    // Players get 2 food for scoring less than the opponent, 1 food for tying, and 0 for scoring more.
+                    // Reward / Punish players for their performance:
                     if (signal.score < signal.oppositionScore)
                         agent.addResources("prisonersDilemmaPoints", 2)
                     else if (signal.score == signal.oppositionScore)
                         agent.addResources("prisonersDilemmaPoints", 1)
                     else
-                        agent.consumeResources("prisonersDilemmaPoints", 1)
+                        agent.consumeResources("prisonersDilemmaPoints", 2)
 
                     // Currently, counting less than or equal to as a win:
                     if (signal.score <= signal.oppositionScore)
@@ -215,22 +222,26 @@ class PrisonersDilemmaPlayground {
                 // to make sure that the whole pool has a chance to face the best possible opposition every timeStep.
                 // There is no penalty for doing poorly in this one.
                 coroutineHandler.addJob(coroutineScope.launch {
+                    val oldestSurvivor = population
+                        .maxByOrNull { it.numResources("survivorPoints") }!!
+
+                    mostSurvivorPoints = oldestSurvivor.numResources("survivorPoints")
+
                     val signal = agent.applyRule(
                         ruleName = "prisonersDilemmaStrategy",
                         dataBundle = SignalToPlayPrisonersDilemma(
-                            opposition = population
-                                .minByOrNull { it.numResources("prisonersDilemmaPoints") }!!
+                            opposition = oldestSurvivor
                                 .getClassifierOrNull("prisonersDilemmaStrategy")!!
                         )
                     ) as SignalThatPrisonersDilemmaHasBeenPlayed
 
-                    // Players get 2 food for scoring less than the opponent, 1 food for tying, and 0 for scoring more.
+                    // Reward / Punish players for their performance:
                     agent.addResources(
                         resourceName = "prisonersDilemmaPoints",
                         amount = if (signal.score < signal.oppositionScore)
-                            majorWinReward
+                            2
                         else if (signal.score == signal.oppositionScore)
-                            minorWinReward
+                            1
                         else
                             0
                     )
@@ -248,14 +259,13 @@ class PrisonersDilemmaPlayground {
                         )
                     ) as SignalThatPrisonersDilemmaHasBeenPlayed
 
-                    // Players get 2 food for scoring less than the opponent, 1 food for tying, and lose a resource
-                    // for scoring more:
+                    // Reward / Punish players for their performance:
                     if (signal.score < signal.oppositionScore)
                         agent.addResources("prisonersDilemmaPoints", 2)
                     else if (signal.score == signal.oppositionScore)
                         agent.addResources("prisonersDilemmaPoints", 1)
                     else
-                        agent.consumeResources("prisonersDilemmaPoints", 1)
+                        agent.consumeResources("prisonersDilemmaPoints", 2)
                 })
             }
 
@@ -283,8 +293,10 @@ class PrisonersDilemmaPlayground {
                 .filter { it.numResources("prisonersDilemmaPoints") >= prisonersDilemmaReproductionThreshold }
                 .shuffled()
 
-            // The whole population (including those reproducing) in descending order by prisonersDilemmaPoints
-            // (before they've been spent):
+            numReproduced = reproducingAgents.size
+
+            // The whole population (including those reproducing) in descending order by reproductionPoints and
+            // prisonersDilemmaPoints (before they've been spent):
             val orderedByPoints = population
                 .sortedByDescending { it.numResources("prisonersDilemmaPoints") }
 
@@ -292,23 +304,31 @@ class PrisonersDilemmaPlayground {
             reproducingAgents
                 .chunked(2)
                 .forEach { pair ->
-                if (pair.size == 1)
-                    newPopulation.add(pair.first().clone())
-                else
-                    pair.first()
-                        .combine(pair.last())
-                        .forEach { newPopulation.add(it) }
-            }
+                    if (pair.size == 1)
+                        newPopulation.add(pair.first().clone())
+                    else
+                        pair.first()
+                            .combine(pair.last())
+                            .forEach { newPopulation.add(it) }
+                }
 
             // Survivors are added from most-to-least fit until the newPopulation is full, leaving the least fit
             // to fall out of the pool:
             for (survivor in orderedByPoints) {
                 if (newPopulation.size >= population.size)
                     break
-                if (survivor in reproducingAgents)
+                if (survivor in reproducingAgents) {
+                    survivor.addResources("reproductionPoints", 1)
                     survivor.consumeResources("prisonersDilemmaPoints", prisonersDilemmaReproductionThreshold)
+                }
+                survivor.addResources("survivorPoints", 1)
                 newPopulation.add(survivor)
             }
+
+            // Tracking the living members of the population who have reproduced the most:
+            mostReproductionPoints = population
+                .maxByOrNull { it.numResources("reproductionPoints") }!!
+                .numResources("reproductionPoints")
 
             // Set the new population:
             population = newPopulation
