@@ -32,5 +32,9 @@ tasks.withType<KotlinCompile> {
 compose.desktop {
     application {
         mainClass = "MainKt"
+
+        nativeDistributions {
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)
+        }
     }
 }
