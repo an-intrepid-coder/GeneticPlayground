@@ -1,3 +1,5 @@
+**NOTE**: This project is abandoned for now as I have tackled the project afresh in another attempt [here](https://github.com/sgibber2018/prisoners_dilemma) where I have improved on everything I did here. The project continues there.
+
 # Genetic Playground
 
 **Description:** Having been inspired by a paper ([*Genetic Algorithms* by John H. Holland](http://www2.econ.iastate.edu/tesfatsi/holland.GAIntro.htm)), I've decided to attempt to make a framework which can solve problems or simulate things using a Genetic Programming approach, as described in the paper above.
